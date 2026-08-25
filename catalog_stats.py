@@ -41,7 +41,11 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from normalize import normalize_format
+from normalize import (
+    normalize_format,
+    normalize_frequency,
+    normalize_license,
+)
 
 DATASETS_FILENAME = "datasets.csv"
 RESOURCES_FILENAME = "resources.csv"
@@ -122,10 +126,14 @@ def dataset_matches(row, query, producer=None, license_name=None, frequency=None
     if not text_matches(row.get("organization"), producer):
         return False
 
-    if not exact_matches(row.get("license"), license_name):
+    if license_name is not None and normalize_license(
+        row.get("license")
+    ) != normalize_license(license_name):
         return False
 
-    return exact_matches(row.get("frequency"), frequency)
+    return frequency is None or normalize_frequency(
+        row.get("frequency")
+    ) == normalize_frequency(frequency)
 
 
 def collect_dataset_candidates(
@@ -167,8 +175,8 @@ def collect_dataset_candidates(
 
             candidates[dataset_id] = {
                 "producer": row.get("organization") or row.get("owner") or "?",
-                "license": row.get("license") or "?",
-                "frequency": row.get("frequency") or "?",
+                "license": normalize_license(row.get("license")),
+                "frequency": normalize_frequency(row.get("frequency")),
             }
 
     return total_datasets, candidates
@@ -285,10 +293,10 @@ def print_active_filters(args):
         filters.append(f"producteur={args.producer}")
 
     if args.license_name:
-        filters.append(f"licence={args.license_name}")
+        filters.append(f"licence={normalize_license(args.license_name)}")
 
     if args.frequency:
-        filters.append(f"fréquence={args.frequency}")
+        filters.append(f"fréquence={normalize_frequency(args.frequency)}")
 
     if args.resource_format:
         filters.append(f"format={normalize_format(args.resource_format)}")
