@@ -1,0 +1,75 @@
+name: Bug report
+description: Report a reproducible problem in datagouv-toolkit
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Please provide enough detail to reproduce it.
+
+  - type: input
+    id: version
+    attributes:
+      label: datagouv-toolkit version
+      description: Output of `pip show datagouv-toolkit` or the Git commit SHA.
+      placeholder: "0.1.1"
+    validations:
+      required: true
+
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      description: Output of `python --version`.
+      placeholder: "Python 3.13.x"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: "Debian 13, Ubuntu 24.04, macOS, Windows..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: Command or minimal example
+      description: Provide the exact command or smallest Python example that reproduces the issue.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include the traceback or error output when relevant.
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Dataset, resource URL, CSV characteristics, or anything else that may help.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues before opening this report.
+          required: true
+        - label: I removed credentials, tokens, and other sensitive data from the report.
+          required: true
