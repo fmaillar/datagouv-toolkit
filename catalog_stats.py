@@ -5,10 +5,31 @@ Le script analyse localement les exports ``datasets.csv`` et ``resources.csv``
 du jeu « Catalogue des données de data.gouv.fr ». Contrairement à la recherche
 paginée de l'API, un snapshot local fournit un corpus stable et reproductible.
 
-Exemple
--------
+Exemples
+--------
+Recherche textuelle simple :
+
     python catalog_stats.py "transport" \
         --snapshot snapshot/2026-08-25
+
+Filtrer par producteur :
+
+    python catalog_stats.py "transport" \
+        --snapshot snapshot/2026-08-25 \
+        --producer "Toulouse métropole"
+
+Filtrer par licence et fréquence :
+
+    python catalog_stats.py "énergie" \
+        --snapshot snapshot/2026-08-25 \
+        --license lov2 \
+        --frequency annual
+
+Ne conserver que les ressources CSV :
+
+    python catalog_stats.py "transport" \
+        --snapshot snapshot/2026-08-25 \
+        --format csv
 
 Le filtrage textuel porte sur le titre, la description courte, la description,
 les tags et le producteur du dataset.
@@ -59,13 +80,30 @@ def parse_int(value):
         return None
 
 
-def dataset_matches(row, query):
-    """Indique si un dataset correspond à la requête textuelle.
+def text_matches(value, expected):
+    """Teste une correspondance de sous-chaîne insensible à la casse."""
+    if expected is None:
+        return True
 
-    Le filtrage est volontairement simple et déterministe : recherche de
-    sous-chaîne insensible à la casse dans plusieurs champs textuels du
-    snapshot.
-    """
+    if not value:
+        return False
+
+    return expected.casefold() in str(value).casefold()
+
+
+def exact_matches(value, expected):
+    """Teste une égalité textuelle insensible à la casse."""
+    if expected is None:
+        return True
+
+    if value is None:
+        return False
+
+    return str(value).strip().casefold() == expected.strip().casefold()
+
+
+def dataset_matches(row, query, producer=None, license_name=None, frequency=None):
+    """Indique si un dataset correspond à la requête et aux filtres structurés."""
     needle = query.casefold()
 
     searchable_fields = (
@@ -78,23 +116,33 @@ def dataset_matches(row, query):
 
     haystack = " ".join(str(value) for value in searchable_fields if value).casefold()
 
-    return needle in haystack
+    if needle not in haystack:
+        return False
+
+    if not text_matches(row.get("organization"), producer):
+        return False
+
+    if not exact_matches(row.get("license"), license_name):
+        return False
+
+    return exact_matches(row.get("frequency"), frequency)
 
 
-def collect_dataset_stats(path, query):
-    """Parcourt ``datasets.csv`` et agrège les datasets correspondants.
+def collect_dataset_candidates(
+    path,
+    query,
+    producer=None,
+    license_name=None,
+    frequency=None,
+):
+    """Parcourt ``datasets.csv`` et retourne les candidats retenus.
 
-    Returns
-    -------
-    tuple
-        ``(matching_ids, stats)`` où ``matching_ids`` est l'ensemble des IDs
-        retenus et ``stats`` contient les compteurs au niveau dataset.
+    Les métadonnées minimales nécessaires aux statistiques sont conservées en
+    mémoire. Cela permet ensuite de restreindre les statistiques dataset aux
+    seuls jeux possédant une ressource correspondant éventuellement à
+    ``--format``.
     """
-    matching_ids = set()
-    producers = Counter()
-    licenses = Counter()
-    frequencies = Counter()
-
+    candidates = {}
     total_datasets = 0
 
     with path.open(encoding="utf-8", newline="") as file:
@@ -103,38 +151,54 @@ def collect_dataset_stats(path, query):
         for row in reader:
             total_datasets += 1
 
-            if not dataset_matches(row, query):
+            if not dataset_matches(
+                row,
+                query,
+                producer=producer,
+                license_name=license_name,
+                frequency=frequency,
+            ):
                 continue
 
             dataset_id = row.get("id")
+
             if not dataset_id:
                 continue
 
-            matching_ids.add(dataset_id)
+            candidates[dataset_id] = {
+                "producer": row.get("organization") or row.get("owner") or "?",
+                "license": row.get("license") or "?",
+                "frequency": row.get("frequency") or "?",
+            }
 
-            producers[row.get("organization") or row.get("owner") or "?"] += 1
-            licenses[row.get("license") or "?"] += 1
-            frequencies[row.get("frequency") or "?"] += 1
-
-    stats = {
-        "catalog_datasets": total_datasets,
-        "datasets": len(matching_ids),
-        "producers": producers,
-        "licenses": licenses,
-        "frequencies": frequencies,
-    }
-
-    return matching_ids, stats
+    return total_datasets, candidates
 
 
-def collect_resource_stats(path, dataset_ids):
-    """Parcourt ``resources.csv`` et agrège les ressources des datasets retenus."""
+def collect_resource_stats(path, candidate_ids, resource_format_filter=None):
+    """Agrège les ressources des datasets candidats.
+
+    Si ``resource_format_filter`` est renseigné, seules les ressources dont le
+    format normalisé correspond exactement au filtre sont retenues.
+
+    Returns
+    -------
+    dict
+        Statistiques ressources et ensemble des IDs de datasets ayant au moins
+        une ressource retenue.
+    """
     formats = Counter()
+    matched_dataset_ids = set()
 
     total_resources = 0
     matched_resources = 0
     known_size = 0
     unknown_size = 0
+
+    normalized_filter = (
+        normalize_format(resource_format_filter)
+        if resource_format_filter is not None
+        else None
+    )
 
     with path.open(encoding="utf-8", newline="") as file:
         reader = csv.DictReader(file, delimiter=";")
@@ -142,12 +206,19 @@ def collect_resource_stats(path, dataset_ids):
         for row in reader:
             total_resources += 1
 
-            if row.get("dataset.id") not in dataset_ids:
+            dataset_id = row.get("dataset.id")
+
+            if dataset_id not in candidate_ids:
+                continue
+
+            fmt = normalize_format(row.get("format"))
+
+            if normalized_filter is not None and fmt != normalized_filter:
                 continue
 
             matched_resources += 1
-
-            formats[normalize_format(row.get("format"))] += 1
+            matched_dataset_ids.add(dataset_id)
+            formats[fmt] += 1
 
             filesize = parse_int(row.get("filesize"))
 
@@ -162,6 +233,28 @@ def collect_resource_stats(path, dataset_ids):
         "formats": formats,
         "known_size": known_size,
         "unknown_size": unknown_size,
+        "dataset_ids": matched_dataset_ids,
+    }
+
+
+def build_dataset_stats(total_datasets, candidates, selected_ids):
+    """Construit les statistiques dataset pour les IDs finalement retenus."""
+    producers = Counter()
+    licenses = Counter()
+    frequencies = Counter()
+
+    for dataset_id in selected_ids:
+        metadata = candidates[dataset_id]
+        producers[metadata["producer"]] += 1
+        licenses[metadata["license"]] += 1
+        frequencies[metadata["frequency"]] += 1
+
+    return {
+        "catalog_datasets": total_datasets,
+        "datasets": len(selected_ids),
+        "producers": producers,
+        "licenses": licenses,
+        "frequencies": frequencies,
     }
 
 
@@ -184,10 +277,31 @@ def print_counter(title, counter, top):
         print(f"... {remaining} autre(s) valeur(s)")
 
 
-def print_stats(query, snapshot, dataset_stats, resource_stats, top):
+def print_active_filters(args):
+    """Affiche les filtres structurés effectivement utilisés."""
+    filters = []
+
+    if args.producer:
+        filters.append(f"producteur={args.producer}")
+
+    if args.license_name:
+        filters.append(f"licence={args.license_name}")
+
+    if args.frequency:
+        filters.append(f"fréquence={args.frequency}")
+
+    if args.resource_format:
+        filters.append(f"format={normalize_format(args.resource_format)}")
+
+    if filters:
+        print(f"Filtres              : {', '.join(filters)}")
+
+
+def print_stats(query, snapshot, dataset_stats, resource_stats, top, args):
     """Affiche les statistiques agrégées du snapshot."""
     print(f"Snapshot             : {snapshot}")
     print(f"Recherche            : {query}")
+    print_active_filters(args)
     print(f"Datasets catalogue   : {dataset_stats['catalog_datasets']}")
     print(f"Datasets trouvés     : {dataset_stats['datasets']}")
     print(f"Ressources catalogue : {resource_stats['catalog_resources']}")
@@ -260,6 +374,24 @@ def build_parser():
         help="Répertoire contenant datasets.csv et resources.csv",
     )
     parser.add_argument(
+        "--producer",
+        help="Filtrer les datasets par nom de producteur (correspondance partielle)",
+    )
+    parser.add_argument(
+        "--license",
+        dest="license_name",
+        help="Filtrer les datasets par licence (correspondance exacte)",
+    )
+    parser.add_argument(
+        "--frequency",
+        help="Filtrer les datasets par fréquence (correspondance exacte)",
+    )
+    parser.add_argument(
+        "--format",
+        dest="resource_format",
+        help="Filtrer les ressources par format normalisé",
+    )
+    parser.add_argument(
         "--top",
         type=int,
         default=DEFAULT_TOP,
@@ -279,14 +411,31 @@ def main():
     try:
         snapshot, datasets_path, resources_path = resolve_snapshot(args.snapshot)
 
-        matching_ids, dataset_stats = collect_dataset_stats(
+        total_datasets, candidates = collect_dataset_candidates(
             datasets_path,
             args.query,
+            producer=args.producer,
+            license_name=args.license_name,
+            frequency=args.frequency,
         )
 
         resource_stats = collect_resource_stats(
             resources_path,
-            matching_ids,
+            set(candidates),
+            resource_format_filter=args.resource_format,
+        )
+
+        selected_ids = resource_stats["dataset_ids"]
+
+        # Sans filtre de format, un dataset sans ressource exportée doit rester
+        # comptabilisé dans les statistiques dataset.
+        if args.resource_format is None:
+            selected_ids = set(candidates)
+
+        dataset_stats = build_dataset_stats(
+            total_datasets,
+            candidates,
+            selected_ids,
         )
 
         print_stats(
@@ -295,6 +444,7 @@ def main():
             dataset_stats,
             resource_stats,
             args.top,
+            args,
         )
 
     except FileNotFoundError as exc:
