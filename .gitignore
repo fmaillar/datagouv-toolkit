@@ -10,3 +10,4 @@ snapshot/
 *.bak-*
 .coverage
 htmlcov/
+*.egg-info/
