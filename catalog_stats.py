@@ -1,170 +1,164 @@
 #!/usr/bin/env python3
-"""Statistiques agrégées sur une recherche du catalogue data.gouv.fr.
+"""Statistiques reproductibles sur un snapshot du catalogue data.gouv.fr.
 
-Ce script complète ``datagouv.py`` : au lieu d'explorer un seul jeu de
-données, il parcourt plusieurs pages de résultats et agrège des informations
-sur les producteurs, formats de ressources, licences et fréquences de mise à
-jour.
+Le script analyse localement les exports ``datasets.csv`` et ``resources.csv``
+du jeu « Catalogue des données de data.gouv.fr ». Contrairement à la recherche
+paginée de l'API, un snapshot local fournit un corpus stable et reproductible.
 
-Exemples
---------
-Analyser les 1 000 premiers jeux correspondant à « énergie » :
+Exemple
+-------
+    python catalog_stats.py "transport" \
+        --snapshot snapshot/2026-08-25
 
-    python catalog_stats.py "énergie"
-
-Limiter l'analyse à 200 jeux :
-
-    python catalog_stats.py "transport" --limit 200
-
-Parcourir tous les résultats :
-
-    python catalog_stats.py "météo" --limit 0
-
-Afficher les 25 premières valeurs de chaque classement :
-
-    python catalog_stats.py "logement" --top 25
+Le filtrage textuel porte sur le titre, la description courte, la description,
+les tags et le producteur du dataset.
 """
 
 import argparse
+import csv
 import sys
 from collections import Counter
+from pathlib import Path
 
-import requests
+from normalize import normalize_format
 
-import datagouv
-
-DEFAULT_PAGE_SIZE = 100
-DEFAULT_LIMIT = 1000
+DATASETS_FILENAME = "datasets.csv"
+RESOURCES_FILENAME = "resources.csv"
 DEFAULT_TOP = 15
 
+# Certains champs des exports data.gouv.fr, notamment les descriptions ou
+# métadonnées JSON, dépassent la limite par défaut du module csv.
+csv.field_size_limit(sys.maxsize)
 
-def iter_datasets(query, page_size=DEFAULT_PAGE_SIZE, limit=DEFAULT_LIMIT):
-    """Parcourt les résultats paginés d'une recherche data.gouv.fr.
 
-    Parameters
-    ----------
-    query:
-        Texte de recherche envoyé à l'API.
-    page_size:
-        Nombre de datasets demandés par page.
-    limit:
-        Nombre maximal de datasets à retourner. ``0`` signifie sans limite.
+def format_size(size):
+    """Convertit une taille en octets vers une représentation lisible."""
+    size = float(size)
 
-    Yields
-    ------
-    dict
-        Un dataset tel que renvoyé par l'API catalogue.
+    for unit in ("o", "Ko", "Mo", "Go", "To"):
+        if size < 1024:
+            return f"{size:.1f} {unit}"
+        size /= 1024
+
+    return f"{size:.1f} Po"
+
+
+def parse_int(value):
+    """Convertit une valeur textuelle en entier ou retourne ``None``."""
+    if value is None:
+        return None
+
+    value = value.strip()
+
+    if not value:
+        return None
+
+    try:
+        return int(value)
+    except ValueError:
+        return None
+
+
+def dataset_matches(row, query):
+    """Indique si un dataset correspond à la requête textuelle.
+
+    Le filtrage est volontairement simple et déterministe : recherche de
+    sous-chaîne insensible à la casse dans plusieurs champs textuels du
+    snapshot.
     """
-    page = 1
-    yielded = 0
+    needle = query.casefold()
 
-    while True:
-        data = datagouv.get_json(
-            f"{datagouv.API_BASE}/datasets/",
-            params={
-                "q": query,
-                "page": page,
-                "page_size": page_size,
-            },
-        )
+    searchable_fields = (
+        row.get("title"),
+        row.get("description_short"),
+        row.get("description"),
+        row.get("tags"),
+        row.get("organization"),
+    )
 
-        datasets = data.get("data", [])
+    haystack = " ".join(str(value) for value in searchable_fields if value).casefold()
 
-        if not datasets:
-            return
-
-        for dataset in datasets:
-            if limit and yielded >= limit:
-                return
-
-            yield dataset
-            yielded += 1
-
-        total = data.get("total")
-
-        if total is not None and yielded >= total:
-            return
-
-        if len(datasets) < page_size:
-            return
-
-        page += 1
+    return needle in haystack
 
 
-def dataset_producer(dataset):
-    """Retourne le nom du producteur d'un dataset, si disponible."""
-    organization = dataset.get("organization")
+def collect_dataset_stats(path, query):
+    """Parcourt ``datasets.csv`` et agrège les datasets correspondants.
 
-    if organization:
-        return organization.get("name") or "?"
-
-    owner = dataset.get("owner")
-    if owner:
-        return owner.get("name") or "?"
-
-    return "?"
-
-
-def resource_format(resource):
-    """Retourne le format déclaré ou l'infère depuis l'URL."""
-    fmt = resource.get("format")
-
-    if fmt:
-        return str(fmt).lower()
-
-    url = resource.get("url") or ""
-    suffix = url.rsplit(".", 1)[-1].lower() if "." in url else ""
-
-    known_suffixes = {
-        "csv",
-        "pdf",
-        "json",
-        "geojson",
-        "zip",
-        "xlsx",
-        "xls",
-        "xml",
-        "parquet",
-    }
-
-    return suffix if suffix in known_suffixes else "?"
-
-
-def collect_stats(datasets):
-    """Agrège les principales métadonnées d'une séquence de datasets."""
+    Returns
+    -------
+    tuple
+        ``(matching_ids, stats)`` où ``matching_ids`` est l'ensemble des IDs
+        retenus et ``stats`` contient les compteurs au niveau dataset.
+    """
+    matching_ids = set()
     producers = Counter()
     licenses = Counter()
     frequencies = Counter()
+
+    total_datasets = 0
+
+    with path.open(encoding="utf-8", newline="") as file:
+        reader = csv.DictReader(file, delimiter=";")
+
+        for row in reader:
+            total_datasets += 1
+
+            if not dataset_matches(row, query):
+                continue
+
+            dataset_id = row.get("id")
+            if not dataset_id:
+                continue
+
+            matching_ids.add(dataset_id)
+
+            producers[row.get("organization") or row.get("owner") or "?"] += 1
+            licenses[row.get("license") or "?"] += 1
+            frequencies[row.get("frequency") or "?"] += 1
+
+    stats = {
+        "catalog_datasets": total_datasets,
+        "datasets": len(matching_ids),
+        "producers": producers,
+        "licenses": licenses,
+        "frequencies": frequencies,
+    }
+
+    return matching_ids, stats
+
+
+def collect_resource_stats(path, dataset_ids):
+    """Parcourt ``resources.csv`` et agrège les ressources des datasets retenus."""
     formats = Counter()
 
-    dataset_count = 0
-    resource_count = 0
+    total_resources = 0
+    matched_resources = 0
     known_size = 0
     unknown_size = 0
 
-    for dataset in datasets:
-        dataset_count += 1
+    with path.open(encoding="utf-8", newline="") as file:
+        reader = csv.DictReader(file, delimiter=";")
 
-        producers[dataset_producer(dataset)] += 1
-        licenses[dataset.get("license") or "?"] += 1
-        frequencies[dataset.get("frequency") or "?"] += 1
+        for row in reader:
+            total_resources += 1
 
-        for resource in dataset.get("resources", []):
-            resource_count += 1
-            formats[resource_format(resource)] += 1
+            if row.get("dataset.id") not in dataset_ids:
+                continue
 
-            filesize = resource.get("filesize")
+            matched_resources += 1
+
+            formats[normalize_format(row.get("format"))] += 1
+
+            filesize = parse_int(row.get("filesize"))
+
             if filesize is None:
                 unknown_size += 1
             else:
                 known_size += filesize
 
     return {
-        "datasets": dataset_count,
-        "resources": resource_count,
-        "producers": producers,
-        "licenses": licenses,
-        "frequencies": frequencies,
+        "catalog_resources": total_resources,
+        "resources": matched_resources,
         "formats": formats,
         "known_size": known_size,
         "unknown_size": unknown_size,
@@ -172,7 +166,7 @@ def collect_stats(datasets):
 
 
 def print_counter(title, counter, top):
-    """Affiche les valeurs les plus fréquentes d'un Counter."""
+    """Affiche les valeurs les plus fréquentes d'un ``Counter``."""
     print()
     print(title)
     print("-" * len(title))
@@ -185,56 +179,85 @@ def print_counter(title, counter, top):
         print(f"{count:6}  {value}")
 
     remaining = len(counter) - min(top, len(counter))
+
     if remaining > 0:
         print(f"... {remaining} autre(s) valeur(s)")
 
 
-def print_stats(query, total, stats, top):
-    """Affiche la synthèse agrégée d'une recherche."""
+def print_stats(query, snapshot, dataset_stats, resource_stats, top):
+    """Affiche les statistiques agrégées du snapshot."""
+    print(f"Snapshot             : {snapshot}")
     print(f"Recherche            : {query}")
-    print(f"Datasets trouvés     : {total}")
-    print(f"Datasets analysés    : {stats['datasets']}")
-    print(f"Ressources analysées : {stats['resources']}")
+    print(f"Datasets catalogue   : {dataset_stats['catalog_datasets']}")
+    print(f"Datasets trouvés     : {dataset_stats['datasets']}")
+    print(f"Ressources catalogue : {resource_stats['catalog_resources']}")
+    print(f"Ressources analysées : {resource_stats['resources']}")
 
-    if stats["known_size"] == 0 and stats["unknown_size"] == stats["resources"]:
+    if (
+        resource_stats["known_size"] == 0
+        and resource_stats["unknown_size"] == resource_stats["resources"]
+    ):
         print("Taille connue        : inconnue")
     else:
-        print(f"Taille connue        : {datagouv.format_size(stats['known_size'])}")
+        print(f"Taille connue        : {format_size(resource_stats['known_size'])}")
 
-    print(f"Tailles inconnues    : {stats['unknown_size']} ressource(s)")
+    print(f"Tailles inconnues    : {resource_stats['unknown_size']} ressource(s)")
 
-    print_counter("Principaux producteurs", stats["producers"], top)
-    print_counter("Formats de ressources", stats["formats"], top)
-    print_counter("Licences", stats["licenses"], top)
-    print_counter("Fréquences de mise à jour", stats["frequencies"], top)
+    print_counter(
+        "Principaux producteurs",
+        dataset_stats["producers"],
+        top,
+    )
+    print_counter(
+        "Formats de ressources",
+        resource_stats["formats"],
+        top,
+    )
+    print_counter(
+        "Licences",
+        dataset_stats["licenses"],
+        top,
+    )
+    print_counter(
+        "Fréquences de mise à jour",
+        dataset_stats["frequencies"],
+        top,
+    )
 
 
-def get_total(query):
-    """Retourne le nombre total de datasets correspondant à une recherche."""
-    data = datagouv.search_datasets(query, page_size=1)
-    return data.get("total", "?")
+def resolve_snapshot(path):
+    """Vérifie le snapshot et retourne les deux fichiers CSV attendus."""
+    snapshot = path.expanduser().resolve()
+    datasets = snapshot / DATASETS_FILENAME
+    resources = snapshot / RESOURCES_FILENAME
+
+    missing = [file.name for file in (datasets, resources) if not file.is_file()]
+
+    if missing:
+        names = ", ".join(missing)
+        raise FileNotFoundError(
+            f"Snapshot incomplet : fichier(s) manquant(s) : {names}"
+        )
+
+    return snapshot, datasets, resources
 
 
 def build_parser():
     """Construit le parseur de ligne de commande."""
     parser = argparse.ArgumentParser(
-        description="Statistiques agrégées sur le catalogue data.gouv.fr"
+        description=(
+            "Statistiques reproductibles sur un snapshot du catalogue data.gouv.fr"
+        )
     )
     parser.add_argument(
         "query",
-        help="Texte de recherche",
+        help="Texte recherché dans les métadonnées locales",
     )
     parser.add_argument(
-        "--limit",
-        type=int,
-        default=DEFAULT_LIMIT,
-        help="Nombre maximal de datasets à analyser ; 0 = tous (défaut: 1000)",
-    )
-    parser.add_argument(
-        "--page-size",
-        type=int,
-        default=DEFAULT_PAGE_SIZE,
-        help="Nombre de datasets demandés par page (défaut: 100)",
+        "--snapshot",
+        type=Path,
+        required=True,
+        help="Répertoire contenant datasets.csv et resources.csv",
     )
     parser.add_argument(
         "--top",
@@ -250,32 +273,40 @@ def main():
     parser = build_parser()
     args = parser.parse_args()
 
-    if args.limit < 0:
-        parser.error("--limit doit être positif ou nul")
-
-    if args.page_size <= 0:
-        parser.error("--page-size doit être strictement positif")
-
     if args.top <= 0:
         parser.error("--top doit être strictement positif")
 
     try:
-        total = get_total(args.query)
-        stats = collect_stats(
-            iter_datasets(
-                args.query,
-                page_size=args.page_size,
-                limit=args.limit,
-            )
-        )
-        print_stats(args.query, total, stats, args.top)
+        snapshot, datasets_path, resources_path = resolve_snapshot(args.snapshot)
 
-    except requests.HTTPError as exc:
-        print(f"Erreur HTTP : {exc}", file=sys.stderr)
+        matching_ids, dataset_stats = collect_dataset_stats(
+            datasets_path,
+            args.query,
+        )
+
+        resource_stats = collect_resource_stats(
+            resources_path,
+            matching_ids,
+        )
+
+        print_stats(
+            args.query,
+            snapshot,
+            dataset_stats,
+            resource_stats,
+            args.top,
+        )
+
+    except FileNotFoundError as exc:
+        print(f"Erreur : {exc}", file=sys.stderr)
         return 1
 
-    except requests.RequestException as exc:
-        print(f"Erreur réseau : {exc}", file=sys.stderr)
+    except csv.Error as exc:
+        print(f"Erreur CSV : {exc}", file=sys.stderr)
+        return 1
+
+    except OSError as exc:
+        print(f"Erreur fichier : {exc}", file=sys.stderr)
         return 1
 
     except KeyboardInterrupt:
