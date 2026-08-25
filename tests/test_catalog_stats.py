@@ -1,16 +1,26 @@
 """Tests unitaires de catalog_stats.py."""
 
 import csv
+import sys
+from argparse import Namespace
 from collections import Counter
+from pathlib import Path
 
 import pytest
 
+import catalog_stats as module
 from catalog_stats import (
     build_dataset_stats,
+    collect_dataset_candidates,
     collect_resource_stats,
     dataset_matches,
     exact_matches,
+    format_size,
     parse_int,
+    print_active_filters,
+    print_counter,
+    print_stats,
+    resolve_snapshot,
     text_matches,
 )
 
@@ -360,3 +370,564 @@ def test_collect_resource_stats_ignores_invalid_filesize(tmp_path):
     assert stats["resources"] == 2
     assert stats["known_size"] == 0
     assert stats["unknown_size"] == 2
+
+
+@pytest.mark.parametrize(
+    ("size", "expected"),
+    [
+        (0, "0.0 o"),
+        (1023, "1023.0 o"),
+        (1024, "1.0 Ko"),
+        (1024**2, "1.0 Mo"),
+        (1024**3, "1.0 Go"),
+        (1024**4, "1.0 To"),
+        (1024**5, "1.0 Po"),
+    ],
+)
+def test_format_size(size, expected):
+    assert format_size(size) == expected
+
+
+def test_collect_dataset_candidates(tmp_path: Path) -> None:
+    path = tmp_path / "datasets.csv"
+
+    write_csv(
+        path,
+        [
+            "id",
+            "title",
+            "description_short",
+            "description",
+            "tags",
+            "organization",
+            "owner",
+            "license",
+            "frequency",
+        ],
+        [
+            {
+                "id": "a",
+                "title": "Transport Toulouse",
+                "description_short": "",
+                "description": "",
+                "tags": "",
+                "organization": "Toulouse Métropole",
+                "owner": "",
+                "license": "Licence Ouverte / Open Licence version 2.0",
+                "frequency": "Annual",
+            },
+            {
+                "id": "b",
+                "title": "Énergie Rennes",
+                "description_short": "",
+                "description": "",
+                "tags": "",
+                "organization": "Rennes Métropole",
+                "owner": "",
+                "license": "ODC-ODbL",
+                "frequency": "weekly",
+            },
+            {
+                "id": "",
+                "title": "Transport sans identifiant",
+                "description_short": "",
+                "description": "",
+                "tags": "",
+                "organization": "",
+                "owner": "Example owner",
+                "license": "",
+                "frequency": "",
+            },
+        ],
+    )
+
+    total, candidates = collect_dataset_candidates(
+        path,
+        "transport",
+    )
+
+    assert total == 3
+    assert candidates == {
+        "a": {
+            "producer": "Toulouse Métropole",
+            "license": "fr-lo-2.0",
+            "frequency": "annual",
+        }
+    }
+
+
+def test_collect_dataset_candidates_applies_filters(tmp_path: Path) -> None:
+    path = tmp_path / "datasets.csv"
+
+    write_csv(
+        path,
+        [
+            "id",
+            "title",
+            "description_short",
+            "description",
+            "tags",
+            "organization",
+            "owner",
+            "license",
+            "frequency",
+        ],
+        [
+            {
+                "id": "a",
+                "title": "Transport",
+                "description_short": "",
+                "description": "",
+                "tags": "",
+                "organization": "Toulouse Métropole",
+                "owner": "",
+                "license": "Licence Ouverte / Open Licence version 2.0",
+                "frequency": "annual",
+            },
+            {
+                "id": "b",
+                "title": "Transport",
+                "description_short": "",
+                "description": "",
+                "tags": "",
+                "organization": "Rennes Métropole",
+                "owner": "",
+                "license": "ODC-ODbL",
+                "frequency": "weekly",
+            },
+        ],
+    )
+
+    total, candidates = collect_dataset_candidates(
+        path,
+        "transport",
+        producer="Toulouse",
+        license_name="fr-lo-2.0",
+        frequency="annual",
+    )
+
+    assert total == 2
+    assert set(candidates) == {"a"}
+
+
+def test_print_counter_empty(capsys) -> None:
+    print_counter("Titre", Counter(), 10)
+
+    output = capsys.readouterr().out
+
+    assert "Titre" in output
+    assert "?" in output
+
+
+def test_print_counter_with_remaining_values(capsys) -> None:
+    counter = Counter(
+        {
+            "a": 3,
+            "b": 2,
+            "c": 1,
+        }
+    )
+
+    print_counter("Titre", counter, 2)
+
+    output = capsys.readouterr().out
+
+    assert "a" in output
+    assert "b" in output
+    assert "... 1 autre(s) valeur(s)" in output
+
+
+def test_print_active_filters(capsys) -> None:
+    args = Namespace(
+        producer="Example",
+        license_name="lov2",
+        frequency="Annual",
+        resource_format="ogc:WFS",
+    )
+
+    print_active_filters(args)
+
+    output = capsys.readouterr().out
+
+    assert "producteur=Example" in output
+    assert "licence=fr-lo-2.0" in output
+    assert "fréquence=annual" in output
+    assert "format=wfs" in output
+
+
+def test_print_active_filters_empty(capsys) -> None:
+    args = Namespace(
+        producer=None,
+        license_name=None,
+        frequency=None,
+        resource_format=None,
+    )
+
+    print_active_filters(args)
+
+    assert capsys.readouterr().out == ""
+
+
+def test_print_stats_unknown_size(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    args = Namespace(
+        producer=None,
+        license_name=None,
+        frequency=None,
+        resource_format=None,
+    )
+
+    dataset_stats = {
+        "catalog_datasets": 10,
+        "datasets": 1,
+        "producers": Counter({"Example": 1}),
+        "licenses": Counter({"fr-lo-2.0": 1}),
+        "frequencies": Counter({"annual": 1}),
+    }
+
+    resource_stats = {
+        "catalog_resources": 20,
+        "resources": 2,
+        "formats": Counter({"csv": 2}),
+        "known_size": 0,
+        "unknown_size": 2,
+    }
+
+    print_stats(
+        "transport",
+        tmp_path,
+        dataset_stats,
+        resource_stats,
+        10,
+        args,
+    )
+
+    output = capsys.readouterr().out
+
+    assert "Recherche            : transport" in output
+    assert "Taille connue        : inconnue" in output
+    assert "Example" in output
+    assert "csv" in output
+
+
+def test_print_stats_known_size(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    args = Namespace(
+        producer=None,
+        license_name=None,
+        frequency=None,
+        resource_format=None,
+    )
+
+    dataset_stats = {
+        "catalog_datasets": 1,
+        "datasets": 1,
+        "producers": Counter(),
+        "licenses": Counter(),
+        "frequencies": Counter(),
+    }
+
+    resource_stats = {
+        "catalog_resources": 1,
+        "resources": 1,
+        "formats": Counter(),
+        "known_size": 1024,
+        "unknown_size": 0,
+    }
+
+    print_stats(
+        "x",
+        tmp_path,
+        dataset_stats,
+        resource_stats,
+        10,
+        args,
+    )
+
+    assert "1.0 Ko" in capsys.readouterr().out
+
+
+def test_resolve_snapshot(tmp_path: Path) -> None:
+    (tmp_path / "datasets.csv").write_text("", encoding="utf-8")
+    (tmp_path / "resources.csv").write_text("", encoding="utf-8")
+
+    snapshot, datasets, resources = resolve_snapshot(tmp_path)
+
+    assert snapshot == tmp_path.resolve()
+    assert datasets == snapshot / "datasets.csv"
+    assert resources == snapshot / "resources.csv"
+
+
+def test_resolve_snapshot_rejects_missing_files(tmp_path: Path) -> None:
+    with pytest.raises(
+        FileNotFoundError,
+        match="Snapshot incomplet",
+    ):
+        resolve_snapshot(tmp_path)
+
+
+def test_build_parser() -> None:
+    parser = module.build_parser()
+
+    args = parser.parse_args(
+        [
+            "transport",
+            "--snapshot",
+            "snapshot/test",
+            "--producer",
+            "Example",
+            "--license",
+            "odbl",
+            "--frequency",
+            "weekly",
+            "--format",
+            "csv",
+            "--top",
+            "5",
+        ]
+    )
+
+    assert args.query == "transport"
+    assert args.snapshot == Path("snapshot/test")
+    assert args.producer == "Example"
+    assert args.license_name == "odbl"
+    assert args.frequency == "weekly"
+    assert args.resource_format == "csv"
+    assert args.top == 5
+
+
+def test_main_success(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    datasets = tmp_path / "datasets.csv"
+    resources = tmp_path / "resources.csv"
+
+    monkeypatch.setattr(
+        module,
+        "resolve_snapshot",
+        lambda path: (tmp_path, datasets, resources),
+    )
+    monkeypatch.setattr(
+        module,
+        "collect_dataset_candidates",
+        lambda *args, **kwargs: (
+            10,
+            {
+                "a": {
+                    "producer": "Example",
+                    "license": "fr-lo-2.0",
+                    "frequency": "annual",
+                }
+            },
+        ),
+    )
+    monkeypatch.setattr(
+        module,
+        "collect_resource_stats",
+        lambda *args, **kwargs: {
+            "catalog_resources": 20,
+            "resources": 1,
+            "formats": Counter({"csv": 1}),
+            "known_size": 100,
+            "unknown_size": 0,
+            "dataset_ids": {"a"},
+        },
+    )
+
+    printed = []
+
+    monkeypatch.setattr(
+        module,
+        "print_stats",
+        lambda *args, **kwargs: printed.append(args),
+    )
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "catalog_stats.py",
+            "transport",
+            "--snapshot",
+            str(tmp_path),
+        ],
+    )
+
+    assert module.main() == 0
+    assert len(printed) == 1
+
+
+def test_main_with_format_filter(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    datasets = tmp_path / "datasets.csv"
+    resources = tmp_path / "resources.csv"
+
+    candidates = {
+        "a": {
+            "producer": "A",
+            "license": "fr-lo-2.0",
+            "frequency": "annual",
+        },
+        "b": {
+            "producer": "B",
+            "license": "odbl",
+            "frequency": "weekly",
+        },
+    }
+
+    monkeypatch.setattr(
+        module,
+        "resolve_snapshot",
+        lambda path: (tmp_path, datasets, resources),
+    )
+    monkeypatch.setattr(
+        module,
+        "collect_dataset_candidates",
+        lambda *args, **kwargs: (2, candidates),
+    )
+    monkeypatch.setattr(
+        module,
+        "collect_resource_stats",
+        lambda *args, **kwargs: {
+            "catalog_resources": 2,
+            "resources": 1,
+            "formats": Counter({"csv": 1}),
+            "known_size": 1,
+            "unknown_size": 0,
+            "dataset_ids": {"a"},
+        },
+    )
+
+    selected = []
+
+    def fake_build_dataset_stats(total, candidate_rows, selected_ids):
+        selected.append(selected_ids)
+        return {
+            "catalog_datasets": total,
+            "datasets": len(selected_ids),
+            "producers": Counter(),
+            "licenses": Counter(),
+            "frequencies": Counter(),
+        }
+
+    monkeypatch.setattr(
+        module,
+        "build_dataset_stats",
+        fake_build_dataset_stats,
+    )
+    monkeypatch.setattr(
+        module,
+        "print_stats",
+        lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "catalog_stats.py",
+            "transport",
+            "--snapshot",
+            str(tmp_path),
+            "--format",
+            "csv",
+        ],
+    )
+
+    assert module.main() == 0
+    assert selected == [{"a"}]
+
+
+def test_main_rejects_invalid_top(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "catalog_stats.py",
+            "transport",
+            "--snapshot",
+            str(tmp_path),
+            "--top",
+            "0",
+        ],
+    )
+
+    with pytest.raises(SystemExit):
+        module.main()
+
+
+@pytest.mark.parametrize(
+    ("exception", "expected_code"),
+    [
+        (FileNotFoundError("missing"), 1),
+        (OSError("failure"), 1),
+        (KeyboardInterrupt(), 130),
+    ],
+)
+def test_main_handles_errors(
+    monkeypatch,
+    tmp_path: Path,
+    exception,
+    expected_code,
+) -> None:
+    monkeypatch.setattr(
+        module,
+        "resolve_snapshot",
+        lambda path: (_ for _ in ()).throw(exception),
+    )
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "catalog_stats.py",
+            "transport",
+            "--snapshot",
+            str(tmp_path),
+        ],
+    )
+
+    assert module.main() == expected_code
+
+
+def test_main_handles_csv_error(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(
+        module,
+        "resolve_snapshot",
+        lambda path: (
+            tmp_path,
+            tmp_path / "datasets.csv",
+            tmp_path / "resources.csv",
+        ),
+    )
+
+    monkeypatch.setattr(
+        module,
+        "collect_dataset_candidates",
+        lambda *args, **kwargs: (_ for _ in ()).throw(csv.Error("broken")),
+    )
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "catalog_stats.py",
+            "transport",
+            "--snapshot",
+            str(tmp_path),
+        ],
+    )
+
+    assert module.main() == 1
