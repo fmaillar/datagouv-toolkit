@@ -8,3 +8,5 @@ __pycache__/
 datasets/baac/2024/*.csv
 snapshot/
 *.bak-*
+.coverage
+htmlcov/
