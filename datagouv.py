@@ -1,4 +1,33 @@
 #!/usr/bin/env python3
+"""Client CLI minimal pour explorer le catalogue data.gouv.fr.
+
+Le script interroge l'API catalogue publique de data.gouv.fr et permet de :
+
+- rechercher des jeux de données ;
+- résoudre un jeu par ID ou recherche textuelle ;
+- filtrer les résultats par producteur et par titre ;
+- afficher un résumé, les ressources et les métadonnées principales ;
+- calculer quelques statistiques sur les ressources ;
+- inspecter la réponse JSON brute de l'API.
+
+Exemples
+--------
+Rechercher des jeux de données :
+
+    python datagouv.py search "accidents corporels"
+
+Afficher les métadonnées du jeu BAAC officiel :
+
+    python datagouv.py metadata "accidents corporels" \
+        --producer "Ministère de l'intérieur"
+
+Inspecter le JSON brut :
+
+    python datagouv.py inspect "accidents corporels" \
+        --producer "Ministère de l'intérieur" | jq
+
+Le script fonctionne en lecture seule et ne modifie aucune donnée distante.
+"""
 
 import argparse
 import json
@@ -14,12 +43,47 @@ TIMEOUT = 30
 
 
 def get_json(url, params=None):
+    """Effectue une requête HTTP GET et retourne la réponse JSON décodée.
+
+    Parameters
+    ----------
+    url:
+        URL à interroger.
+    params:
+        Paramètres de requête optionnels transmis à ``requests.get``.
+
+    Returns
+    -------
+    object
+        Objet Python issu du décodage JSON.
+
+    Raises
+    ------
+    requests.HTTPError
+        Si le serveur retourne un statut HTTP en erreur.
+    requests.RequestException
+        En cas d'erreur réseau.
+    """
     response = requests.get(url, params=params, timeout=TIMEOUT)
     response.raise_for_status()
     return response.json()
 
 
 def search_datasets(query, page_size=10):
+    """Recherche des jeux de données dans le catalogue data.gouv.fr.
+
+    Parameters
+    ----------
+    query:
+        Texte recherché.
+    page_size:
+        Nombre maximal de résultats demandés à l'API.
+
+    Returns
+    -------
+    dict
+        Réponse JSON de l'endpoint ``/datasets/``.
+    """
     url = f"{API_BASE}/datasets/"
     params = {
         "q": query,
@@ -29,13 +93,45 @@ def search_datasets(query, page_size=10):
 
 
 def get_dataset(dataset_id):
+    """Récupère un jeu de données à partir de son identifiant data.gouv.fr."""
     url = f"{API_BASE}/datasets/{dataset_id}/"
     return get_json(url)
 
 
 def resolve_dataset(value, page_size=20, producer=None, title=None):
-    """Résout un jeu de données depuis son ID ou une recherche textuelle."""
+    """Résout un jeu de données depuis son ID ou une recherche textuelle.
 
+    Si ``value`` ressemble à un identifiant data.gouv.fr, le jeu est récupéré
+    directement. Sinon, une recherche textuelle est effectuée puis filtrée
+    éventuellement par producteur et par titre.
+
+    Lorsqu'il reste plusieurs candidats, l'utilisateur choisit
+    interactivement dans le terminal.
+
+    Parameters
+    ----------
+    value:
+        Identifiant data.gouv.fr ou texte de recherche.
+    page_size:
+        Nombre maximal de candidats récupérés lors de la recherche.
+    producer:
+        Sous-chaîne optionnelle recherchée dans le nom du producteur.
+    title:
+        Sous-chaîne optionnelle recherchée dans le titre.
+
+    Returns
+    -------
+    dict
+        Jeu de données complet retourné par l'API.
+
+    Raises
+    ------
+    ValueError
+        Si aucun jeu de données ne correspond aux critères.
+    """
+
+    # Les identifiants historiques de data.gouv.fr ont ici la forme
+    # d'un ObjectId MongoDB : 24 caractères hexadécimaux.
     if re.fullmatch(r"[0-9a-fA-F]{24}", value):
         return get_dataset(value)
 
@@ -96,11 +192,13 @@ def resolve_dataset(value, page_size=20, producer=None, title=None):
 
 
 def get_organization(org_id):
+    """Récupère les métadonnées d'une organisation data.gouv.fr."""
     url = f"{API_BASE}/organizations/{org_id}/"
     return get_json(url)
 
 
 def print_dataset_summary(dataset):
+    """Affiche un résumé lisible d'un jeu de données."""
     organization = dataset.get("organization")
 
     if organization:
@@ -122,6 +220,7 @@ def print_dataset_summary(dataset):
 
 
 def print_search_results(data):
+    """Affiche une liste compacte de résultats de recherche."""
     datasets = data.get("data", [])
 
     total = data.get("total", "?")
@@ -141,6 +240,7 @@ def print_search_results(data):
 
 
 def print_resources(dataset):
+    """Affiche les ressources associées à un jeu de données."""
     resources = dataset.get("resources", [])
 
     if not resources:
@@ -164,6 +264,7 @@ def print_resources(dataset):
 
 
 def format_size(size):
+    """Convertit une taille en octets vers une représentation lisible."""
     size = float(size)
 
     for unit in ("o", "Ko", "Mo", "Go", "To"):
@@ -217,6 +318,21 @@ def command_organization(args):
 
 
 def dataset_stats(dataset):
+    """Calcule des statistiques simples sur les ressources d'un dataset.
+
+    Les statistiques incluent la répartition par format, les domaines
+    d'hébergement, la somme des tailles connues et les années détectées dans
+    les titres ou URL des ressources.
+
+    Notes
+    -----
+    Certaines ressources data.gouv.fr n'ont pas de champ ``format``.
+    Dans ce cas, le format est inféré depuis l'extension de l'URL lorsqu'elle
+    appartient à un petit ensemble de formats connus.
+
+    Les années détectées constituent une heuristique descriptive ; elles ne
+    doivent pas être interprétées comme une couverture temporelle officielle.
+    """
     resources = dataset.get("resources", [])
 
     formats = Counter()
@@ -230,6 +346,8 @@ def dataset_stats(dataset):
         fmt = resource.get("format")
 
         if not fmt:
+            # Les métadonnées de certaines ressources omettent le format.
+            # On tente alors de l'inférer depuis l'extension de l'URL.
             url = resource.get("url", "")
             suffix = url.rsplit(".", 1)[-1].lower() if "." in url else ""
 
@@ -316,6 +434,7 @@ def command_stats(args):
 
 
 def command_inspect(args):
+    """Affiche le JSON brut complet d'un jeu de données."""
     dataset = resolve_dataset(
         args.dataset,
         producer=args.producer,
@@ -333,6 +452,7 @@ def command_inspect(args):
 
 
 def format_metadata_value(value):
+    """Convertit une valeur de métadonnée en texte lisible pour le terminal."""
     if value is None:
         return "?"
 
@@ -355,6 +475,12 @@ def format_metadata_value(value):
 
 
 def print_mapping_section(title, data, known_fields):
+    """Affiche un dictionnaire en privilégiant certains champs connus.
+
+    Les clés reconnues sont affichées sous forme tabulaire. Les clés restantes
+    sont conservées et affichées ensuite en JSON afin de ne perdre aucune
+    métadonnée exposée par l'API.
+    """
     print()
     print(title)
     print("-" * len(title))
@@ -397,6 +523,7 @@ def print_mapping_section(title, data, known_fields):
 
 
 def command_metadata(args):
+    """Affiche une vue structurée des principales métadonnées d'un dataset."""
     dataset = resolve_dataset(
         args.dataset,
         producer=args.producer,
@@ -471,6 +598,7 @@ def command_metadata(args):
 
 
 def build_parser():
+    """Construit le parseur de ligne de commande et ses sous-commandes."""
     parser = argparse.ArgumentParser(
         description="Client minimal pour l'API catalogue data.gouv.fr"
     )
@@ -601,6 +729,7 @@ def build_parser():
 
 
 def main():
+    """Point d'entrée principal de la CLI."""
     parser = build_parser()
     args = parser.parse_args()
 
