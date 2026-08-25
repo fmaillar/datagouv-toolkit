@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "datagouv-toolkit"
-version = "0.1.0"
+version = "0.1.1"
 description = "Toolkit for exploring, downloading, auditing and analyzing datasets from data.gouv.fr"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.11"
 license = "GPL-3.0-only"
 authors = [
   { name = "Florian Maillard" },
@@ -27,6 +27,8 @@ classifiers = [
   "Intended Audience :: Science/Research",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Topic :: Scientific/Engineering :: Information Analysis",
 ]
@@ -38,10 +40,12 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "bandit",
+  "build",
   "mypy",
   "pytest",
   "pytest-cov",
   "ruff",
+  "twine",
 ]
 
 [project.urls]
