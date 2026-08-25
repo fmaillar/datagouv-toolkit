@@ -1,7 +1,9 @@
+import sys
 from pathlib import Path
 
 import pytest
 
+import dataset_workflow as module
 from dataset_workflow import run_workflow
 
 
@@ -458,3 +460,97 @@ def test_run_workflow_audit_dir_ignored_when_audit_disabled(
     )
 
     assert not audit_dir.exists()
+
+
+def test_parse_args(monkeypatch) -> None:
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "dataset_workflow.py",
+            "transport",
+            "--output",
+            "data",
+            "--producer",
+            "Example org",
+            "--dataset-title",
+            "Mobilité",
+            "--format",
+            "csv",
+            "--resource-title",
+            "2024",
+            "--overwrite",
+            "--audit-dir",
+            "audits",
+        ],
+    )
+
+    args = module.parse_args()
+
+    assert args.dataset == "transport"
+    assert args.output == Path("data")
+    assert args.producer == "Example org"
+    assert args.dataset_title == "Mobilité"
+    assert args.resource_format == "csv"
+    assert args.resource_title == "2024"
+    assert args.overwrite is True
+    assert args.no_audit is False
+    assert args.audit_dir == Path("audits")
+
+
+def test_main_forwards_cli_arguments(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    calls = []
+
+    def fake_run_workflow(
+        dataset_query,
+        output_dir,
+        **kwargs,
+    ):
+        calls.append(
+            {
+                "dataset_query": dataset_query,
+                "output_dir": output_dir,
+                **kwargs,
+            }
+        )
+
+    monkeypatch.setattr(
+        module,
+        "run_workflow",
+        fake_run_workflow,
+    )
+
+    audit_dir = tmp_path / "audits"
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "dataset_workflow.py",
+            "example",
+            "--output",
+            str(tmp_path),
+            "--no-audit",
+            "--audit-dir",
+            str(audit_dir),
+        ],
+    )
+
+    module.main()
+
+    assert calls == [
+        {
+            "dataset_query": "example",
+            "output_dir": tmp_path,
+            "producer": None,
+            "dataset_title": None,
+            "resource_format": None,
+            "resource_title": None,
+            "overwrite": False,
+            "audit_csv": False,
+            "audit_dir": audit_dir,
+        }
+    ]
