@@ -1,9 +1,12 @@
+import sys
 from pathlib import Path
 
 import pytest
 
+import download_resources as module
 from download_resources import (
     download_resource,
+    download_resources,
     safe_filename,
     select_resources,
 )
@@ -240,3 +243,201 @@ def test_download_resource_removes_partial_file_on_error(
 
     assert not destination.exists()
     assert not (tmp_path / "data.csv.part").exists()
+
+
+def test_download_resources_downloads_selected_files(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    resources = [
+        {
+            "title": "a.csv",
+            "url": "https://example.test/a.csv",
+        },
+        {
+            "title": "b.csv",
+            "url": "https://example.test/b.csv",
+        },
+    ]
+
+    calls = []
+
+    def fake_download(resource, destination, *, overwrite=False):
+        calls.append((resource["title"], destination, overwrite))
+        return True
+
+    monkeypatch.setattr(
+        module,
+        "download_resource",
+        fake_download,
+    )
+
+    download_resources(
+        resources,
+        tmp_path,
+    )
+
+    assert calls == [
+        ("a.csv", tmp_path / "a.csv", False),
+        ("b.csv", tmp_path / "b.csv", False),
+    ]
+
+
+def test_download_resources_skips_existing_file(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    destination = tmp_path / "a.csv"
+    destination.write_text("existing", encoding="utf-8")
+
+    resources = [
+        {
+            "title": "a.csv",
+            "url": "https://example.test/a.csv",
+        }
+    ]
+
+    called = False
+
+    def fake_download(resource, destination, *, overwrite=False):
+        nonlocal called
+        called = True
+        return True
+
+    monkeypatch.setattr(
+        module,
+        "download_resource",
+        fake_download,
+    )
+
+    download_resources(
+        resources,
+        tmp_path,
+    )
+
+    assert called is False
+
+
+def test_parse_args(monkeypatch) -> None:
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "download_resources.py",
+            "transport",
+            "--output",
+            "data",
+            "--producer",
+            "Example org",
+            "--dataset-title",
+            "Mobilité",
+            "--format",
+            "csv",
+            "--resource-title",
+            "2024",
+            "--overwrite",
+        ],
+    )
+
+    args = module.parse_args()
+
+    assert args.dataset == "transport"
+    assert args.output == Path("data")
+    assert args.producer == "Example org"
+    assert args.dataset_title == "Mobilité"
+    assert args.resource_format == "csv"
+    assert args.resource_title == "2024"
+    assert args.overwrite is True
+
+
+def test_main(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    dataset = {
+        "title": "Example dataset",
+        "resources": [],
+    }
+
+    resource = {
+        "title": "data.csv",
+        "format": "csv",
+    }
+
+    monkeypatch.setattr(
+        module,
+        "resolve_dataset",
+        lambda *args, **kwargs: dataset,
+    )
+    monkeypatch.setattr(
+        module,
+        "select_resources",
+        lambda *args, **kwargs: [resource],
+    )
+
+    calls = []
+
+    def fake_download_resources(resources, output_dir, *, overwrite=False):
+        calls.append((resources, output_dir, overwrite))
+
+    monkeypatch.setattr(
+        module,
+        "download_resources",
+        fake_download_resources,
+    )
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "download_resources.py",
+            "example",
+            "--output",
+            str(tmp_path),
+            "--overwrite",
+        ],
+    )
+
+    module.main()
+
+    assert calls == [
+        ([resource], tmp_path, True),
+    ]
+
+
+def test_main_rejects_empty_selection(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    dataset = {
+        "title": "Example dataset",
+        "resources": [],
+    }
+
+    monkeypatch.setattr(
+        module,
+        "resolve_dataset",
+        lambda *args, **kwargs: dataset,
+    )
+    monkeypatch.setattr(
+        module,
+        "select_resources",
+        lambda *args, **kwargs: [],
+    )
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "download_resources.py",
+            "example",
+            "--output",
+            str(tmp_path),
+        ],
+    )
+
+    with pytest.raises(
+        SystemExit,
+        match="Aucune ressource correspondante",
+    ):
+        module.main()
