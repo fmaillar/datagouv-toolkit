@@ -88,5 +88,3 @@ mypy .
 pytest -q
 bandit -q *.py
 ```
-
-Le projet compte actuellement 101 tests.
