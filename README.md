@@ -1,4 +1,4 @@
-# exo_pandas
+# datagouv-toolkit
 
 Outils génériques pour explorer, télécharger, inspecter et analyser des jeux de données publiés sur data.gouv.fr.
 
