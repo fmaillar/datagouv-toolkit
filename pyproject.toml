@@ -1,0 +1,68 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "datagouv-toolkit"
+version = "0.1.0"
+description = "Toolkit for exploring, downloading, auditing and analyzing datasets from data.gouv.fr"
+readme = "README.md"
+requires-python = ">=3.13"
+license = "GPL-3.0-only"
+authors = [
+  { name = "Florian Maillard" },
+]
+keywords = [
+  "data.gouv.fr",
+  "open-data",
+  "csv",
+  "pandas",
+  "cli",
+  "data-analysis",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering :: Information Analysis",
+]
+dependencies = [
+  "pandas",
+  "requests",
+]
+
+[project.optional-dependencies]
+dev = [
+  "bandit",
+  "mypy",
+  "pytest",
+  "pytest-cov",
+  "ruff",
+]
+
+[project.urls]
+Homepage = "https://github.com/fmaillar/datagouv-toolkit"
+Repository = "https://github.com/fmaillar/datagouv-toolkit"
+Issues = "https://github.com/fmaillar/datagouv-toolkit/issues"
+
+[project.scripts]
+datagouv = "datagouv:main"
+datagouv-download = "download_resources:main"
+datagouv-workflow = "dataset_workflow:main"
+datagouv-inspect-csv = "inspect_csv:main"
+datagouv-catalog-stats = "catalog_stats:main"
+
+[tool.setuptools]
+py-modules = [
+  "catalog_stats",
+  "datagouv",
+  "dataset_workflow",
+  "download_resources",
+  "inspect_csv",
+  "normalize",
+]
