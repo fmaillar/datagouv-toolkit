@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import redirect_stdout
 from pathlib import Path
 
 from datagouv import resolve_dataset
@@ -22,6 +23,7 @@ def run_workflow(
     resource_title: str | None = None,
     overwrite: bool = False,
     audit_csv: bool = True,
+    audit_dir: Path | None = None,
 ) -> None:
     dataset = resolve_dataset(
         dataset_query,
@@ -69,11 +71,27 @@ def run_workflow(
             print("Téléchargement : SKIP")
 
         if audit_csv and destination.suffix.casefold() == ".csv":
-            print()
-            print("Audit CSV")
-            print("-" * 80)
+            if audit_dir is None:
+                print()
+                print("Audit CSV")
+                print("-" * 80)
 
-            inspect_csv(destination)
+                inspect_csv(destination)
+            else:
+                audit_dir.mkdir(
+                    parents=True,
+                    exist_ok=True,
+                )
+
+                audit_path = audit_dir / f"{destination.name}.audit.txt"
+
+                with (
+                    audit_path.open("w", encoding="utf-8") as file,
+                    redirect_stdout(file),
+                ):
+                    inspect_csv(destination)
+
+                print(f"Audit       : {audit_path}")
 
 
 def parse_args() -> argparse.Namespace:
@@ -122,6 +140,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Désactive l'audit automatique des CSV.",
     )
+    parser.add_argument(
+        "--audit-dir",
+        type=Path,
+        help="Répertoire dans lequel écrire les audits CSV.",
+    )
 
     return parser.parse_args()
 
@@ -138,6 +161,7 @@ def main() -> None:
         resource_title=args.resource_title,
         overwrite=args.overwrite,
         audit_csv=not args.no_audit,
+        audit_dir=args.audit_dir,
     )
 
 

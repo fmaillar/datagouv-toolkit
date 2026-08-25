@@ -358,3 +358,103 @@ def test_run_workflow_rejects_empty_selection(
             "example",
             tmp_path,
         )
+
+
+def test_run_workflow_writes_audit_file(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    dataset = {
+        "title": "Example dataset",
+        "resources": [
+            {
+                "title": "data.csv",
+                "format": "csv",
+                "url": "https://example.test/data.csv",
+            }
+        ],
+    }
+
+    output_dir = tmp_path / "data"
+    audit_dir = tmp_path / "audits"
+
+    monkeypatch.setattr(
+        "dataset_workflow.resolve_dataset",
+        lambda *args, **kwargs: dataset,
+    )
+    monkeypatch.setattr(
+        "dataset_workflow.select_resources",
+        lambda *args, **kwargs: dataset["resources"],
+    )
+
+    def fake_download(resource, destination, *, overwrite=False):
+        destination.write_text("id;value\n1;a\n", encoding="utf-8")
+        return True
+
+    monkeypatch.setattr(
+        "dataset_workflow.download_resource",
+        fake_download,
+    )
+
+    def fake_inspect(path):
+        print(f"Audit de {path.name}")
+
+    monkeypatch.setattr(
+        "dataset_workflow.inspect_csv",
+        fake_inspect,
+    )
+
+    run_workflow(
+        "example",
+        output_dir,
+        audit_dir=audit_dir,
+    )
+
+    audit_path = audit_dir / "data.csv.audit.txt"
+
+    assert audit_path.is_file()
+    assert audit_path.read_text(encoding="utf-8") == "Audit de data.csv\n"
+
+
+def test_run_workflow_audit_dir_ignored_when_audit_disabled(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    dataset = {
+        "title": "Example dataset",
+        "resources": [
+            {
+                "title": "data.csv",
+                "format": "csv",
+                "url": "https://example.test/data.csv",
+            }
+        ],
+    }
+
+    audit_dir = tmp_path / "audits"
+
+    monkeypatch.setattr(
+        "dataset_workflow.resolve_dataset",
+        lambda *args, **kwargs: dataset,
+    )
+    monkeypatch.setattr(
+        "dataset_workflow.select_resources",
+        lambda *args, **kwargs: dataset["resources"],
+    )
+    monkeypatch.setattr(
+        "dataset_workflow.download_resource",
+        lambda resource, destination, *, overwrite=False: True,
+    )
+    monkeypatch.setattr(
+        "dataset_workflow.inspect_csv",
+        lambda path: None,
+    )
+
+    run_workflow(
+        "example",
+        tmp_path / "data",
+        audit_csv=False,
+        audit_dir=audit_dir,
+    )
+
+    assert not audit_dir.exists()
