@@ -1,11 +1,13 @@
 """Tests unitaires de catalog_stats.py."""
 
+import csv
 from collections import Counter
 
 import pytest
 
 from catalog_stats import (
     build_dataset_stats,
+    collect_resource_stats,
     dataset_matches,
     exact_matches,
     parse_int,
@@ -182,3 +184,179 @@ def test_build_dataset_stats():
             "weekly": 1,
         }
     )
+
+
+def write_csv(path, fieldnames, rows):
+    with path.open("w", encoding="utf-8", newline="") as file:
+        writer = csv.DictWriter(file, fieldnames=fieldnames, delimiter=";")
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def test_collect_resource_stats_filters_dataset_ids(tmp_path):
+    path = tmp_path / "resources.csv"
+
+    write_csv(
+        path,
+        [
+            "dataset.id",
+            "format",
+            "filesize",
+        ],
+        [
+            {
+                "dataset.id": "a",
+                "format": "CSV",
+                "filesize": "100",
+            },
+            {
+                "dataset.id": "b",
+                "format": "JSON",
+                "filesize": "200",
+            },
+            {
+                "dataset.id": "c",
+                "format": "CSV",
+                "filesize": "300",
+            },
+        ],
+    )
+
+    stats = collect_resource_stats(
+        path,
+        {"a", "b"},
+    )
+
+    assert stats["catalog_resources"] == 3
+    assert stats["resources"] == 2
+    assert stats["known_size"] == 300
+    assert stats["unknown_size"] == 0
+    assert stats["formats"] == Counter(
+        {
+            "csv": 1,
+            "json": 1,
+        }
+    )
+    assert stats["dataset_ids"] == {"a", "b"}
+
+
+def test_collect_resource_stats_normalizes_formats(tmp_path):
+    path = tmp_path / "resources.csv"
+
+    write_csv(
+        path,
+        [
+            "dataset.id",
+            "format",
+            "filesize",
+        ],
+        [
+            {
+                "dataset.id": "a",
+                "format": "ogc:WFS",
+                "filesize": "",
+            },
+            {
+                "dataset.id": "a",
+                "format": "WFS",
+                "filesize": "",
+            },
+            {
+                "dataset.id": "a",
+                "format": "ESRI Shapefile (SHP)",
+                "filesize": "1024",
+            },
+        ],
+    )
+
+    stats = collect_resource_stats(
+        path,
+        {"a"},
+    )
+
+    assert stats["resources"] == 3
+    assert stats["formats"] == Counter(
+        {
+            "wfs": 2,
+            "shp": 1,
+        }
+    )
+    assert stats["known_size"] == 1024
+    assert stats["unknown_size"] == 2
+    assert stats["dataset_ids"] == {"a"}
+
+
+def test_collect_resource_stats_filters_normalized_format(tmp_path):
+    path = tmp_path / "resources.csv"
+
+    write_csv(
+        path,
+        [
+            "dataset.id",
+            "format",
+            "filesize",
+        ],
+        [
+            {
+                "dataset.id": "a",
+                "format": "ogc:WFS",
+                "filesize": "",
+            },
+            {
+                "dataset.id": "a",
+                "format": "CSV",
+                "filesize": "100",
+            },
+            {
+                "dataset.id": "b",
+                "format": "WFS",
+                "filesize": "200",
+            },
+        ],
+    )
+
+    stats = collect_resource_stats(
+        path,
+        {"a", "b"},
+        resource_format_filter="wfs",
+    )
+
+    assert stats["resources"] == 2
+    assert stats["formats"] == Counter({"wfs": 2})
+    assert stats["known_size"] == 200
+    assert stats["unknown_size"] == 1
+    assert stats["dataset_ids"] == {"a", "b"}
+
+
+def test_collect_resource_stats_ignores_invalid_filesize(tmp_path):
+    path = tmp_path / "resources.csv"
+
+    write_csv(
+        path,
+        [
+            "dataset.id",
+            "format",
+            "filesize",
+        ],
+        [
+            {
+                "dataset.id": "a",
+                "format": "CSV",
+                "filesize": "not-a-number",
+            },
+            {
+                "dataset.id": "a",
+                "format": "CSV",
+                "filesize": "",
+            },
+        ],
+    )
+
+    stats = collect_resource_stats(
+        path,
+        {"a"},
+    )
+
+    assert stats["resources"] == 2
+    assert stats["known_size"] == 0
+    assert stats["unknown_size"] == 2
