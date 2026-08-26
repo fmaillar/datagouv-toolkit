@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "datagouv-toolkit"
-version = "0.1.1"
+version = "0.2.0"
 description = "Toolkit for exploring, downloading, auditing and analyzing datasets from data.gouv.fr"
 readme = "README.md"
 requires-python = ">=3.11"
