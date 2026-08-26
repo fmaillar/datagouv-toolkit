@@ -2,6 +2,10 @@
 
 Outils génériques pour explorer, télécharger, inspecter et analyser des jeux de données publiés sur data.gouv.fr.
 
+## Réutilisations
+
+- [20 ans d’accidents corporels en France — BAAC 2005–2024](reports/baac-2005-2024/)
+
 ## Architecture
 
 - `datagouv.py` : exploration et résolution de datasets data.gouv.fr.
