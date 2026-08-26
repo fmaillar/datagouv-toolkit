@@ -1,5 +1,6 @@
 import csv
 from pathlib import Path
+
 import matplotlib.pyplot as plt
 import pandas as pd
 
@@ -48,10 +49,7 @@ def detect_separator(path: Path, encoding: str) -> str:
 
 
 def plot_age_severity(severity_share: pd.DataFrame) -> None:
-    output = Path(
-        "reports/baac-2005-2024/figures/"
-        "gravite_par_classe_age.png"
-    )
+    output = Path("reports/baac-2005-2024/figures/gravite_par_classe_age.png")
 
     output.parent.mkdir(
         parents=True,
@@ -66,15 +64,11 @@ def plot_age_severity(severity_share: pd.DataFrame) -> None:
         ax=ax,
     )
 
-    ax.set_title(
-        "Gravité des victimes selon la classe d'âge, 2005–2024"
-    )
+    ax.set_title("Gravité des victimes selon la classe d'âge, 2005–2024")
     ax.set_xlabel("Classe d'âge")
     ax.set_ylabel("Part des victimes (%)")
 
-    ax.legend(
-        ["Tués", "Blessés hospitalisés", "Blessés légers"]
-    )
+    ax.legend(["Tués", "Blessés hospitalisés", "Blessés légers"])
 
     ax.grid(
         axis="y",
@@ -117,10 +111,7 @@ def main() -> None:
 
         age = year - birth_year
 
-        valid_age = (
-            birth_year.notna()
-            & age.between(0, 110)
-        )
+        valid_age = birth_year.notna() & age.between(0, 110)
 
         victims = df["grav"].isin([2, 3, 4])
 
@@ -170,7 +161,7 @@ def main() -> None:
     print()
     print("Répartition de la gravité (%)")
     print(severity_share.round(2))
-    
+
     print(result)
 
     plot_age_severity(severity_share)
@@ -180,7 +171,6 @@ def main() -> None:
         sep=";",
     )
 
-    
 
 if __name__ == "__main__":
     main()

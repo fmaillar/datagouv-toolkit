@@ -104,17 +104,13 @@ def load_temporal_data() -> pd.DataFrame:
 
 
 def build_heatmap_table(df: pd.DataFrame) -> pd.DataFrame:
-    clean = df.dropna(
-        subset=["jour_semaine", "heure"]
-    ).copy()
+    clean = df.dropna(subset=["jour_semaine", "heure"]).copy()
 
     clean["jour_semaine"] = clean["jour_semaine"].astype(int)
     clean["heure"] = clean["heure"].astype(int)
 
     table = (
-        clean.groupby(
-            ["jour_semaine", "heure"]
-        )
+        clean.groupby(["jour_semaine", "heure"])
         .size()
         .unstack(fill_value=0)
         .reindex(
@@ -142,19 +138,15 @@ def plot_heatmap(table: pd.DataFrame) -> None:
         aspect="auto",
     )
 
-    ax.set_title(
-        "Répartition des accidents corporels par jour et heure, 2005–2024"
-    )
+    ax.set_title("Répartition des accidents corporels par jour et heure, 2005–2024")
     ax.set_xlabel("Heure")
     ax.set_ylabel("Jour de la semaine")
 
     ax.set_xticks(range(24))
-    ax.set_xticklabels(range(24))
+    ax.set_xticklabels([str(hour) for hour in range(24)])
 
     ax.set_yticks(range(7))
-    ax.set_yticklabels(
-        [DAY_LABELS[i] for i in range(7)]
-    )
+    ax.set_yticklabels([DAY_LABELS[i] for i in range(7)])
 
     colorbar = fig.colorbar(
         image,
@@ -178,45 +170,33 @@ def plot_heatmap(table: pd.DataFrame) -> None:
 def main() -> None:
     df = load_temporal_data()
 
-    invalid = df[
-        df["jour_semaine"].isna()
-        | df["heure"].isna()
-    ]
+    invalid = df[df["jour_semaine"].isna() | df["heure"].isna()]
 
     invalid_by_year = (
-        df.assign(
-            invalide=df["jour_semaine"].isna() | df["heure"].isna()
-        )
+        df.assign(invalide=df["jour_semaine"].isna() | df["heure"].isna())
         .groupby("annee")["invalide"]
         .agg(["sum", "count"])
     )
 
-    invalid_by_year["pct"] = (
-        invalid_by_year["sum"]
-        / invalid_by_year["count"]
-        * 100
-    )
+    invalid_by_year["pct"] = invalid_by_year["sum"] / invalid_by_year["count"] * 100
 
     print(invalid_by_year)
 
-    invalid_causes = (
-        df.groupby("annee")
-        .agg(
-            date_invalide=(
-                "jour_semaine",
-                lambda x: x.isna().sum(),
-            ),
-            heure_invalide=(
-                "heure",
-                lambda x: x.isna().sum(),
-            ),
-        )
+    invalid_causes = df.groupby("annee").agg(
+        date_invalide=(
+            "jour_semaine",
+            lambda x: x.isna().sum(),
+        ),
+        heure_invalide=(
+            "heure",
+            lambda x: x.isna().sum(),
+        ),
     )
 
     print()
     print(invalid_causes)
     print()
-    
+
     print("Observations totales :", len(df))
     print("Observations invalides:", len(invalid))
     print()

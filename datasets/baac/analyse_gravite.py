@@ -69,11 +69,7 @@ def victims_by_severity() -> pd.DataFrame:
             "non_renseigne": int(counts.get(-1, 0)),
         }
 
-        row["victimes"] = (
-            row["tues"]
-            + row["hospitalises"]
-            + row["legers"]
-        )
+        row["victimes"] = row["tues"] + row["hospitalises"] + row["legers"]
 
         rows.append(row)
 
@@ -124,10 +120,8 @@ def plot_victims(result: pd.DataFrame) -> None:
         "Rupture de comparabilité\n(blessés hospitalisés)",
         va="top",
     )
-    
-    ax.set_title(
-        "Victimes d'accidents corporels par gravité, 2005–2024"
-    )
+
+    ax.set_title("Victimes d'accidents corporels par gravité, 2005–2024")
     ax.set_xlabel("Année")
     ax.set_ylabel("Nombre de victimes")
 

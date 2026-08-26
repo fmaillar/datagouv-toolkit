@@ -46,11 +46,7 @@ def main() -> None:
 
         values = sorted(df["grav"].dropna().unique().tolist())
 
-        print(
-            f"{year}: "
-            f"{values} "
-            f"n={len(df)}"
-        )
+        print(f"{year}: {values} n={len(df)}")
 
 
 if __name__ == "__main__":

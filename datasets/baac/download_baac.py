@@ -114,9 +114,7 @@ def validate_resources(
         for year, table in missing:
             print(f"{year}  {table}")
 
-        raise RuntimeError(
-            f"{len(missing)} ressource(s) BAAC manquante(s)"
-        )
+        raise RuntimeError(f"{len(missing)} ressource(s) BAAC manquante(s)")
 
 
 def print_inventory(
@@ -131,11 +129,7 @@ def print_inventory(
         for table in CANONICAL_NAMES:
             resource = resources[(year, table)]
 
-            print(
-                f"{year}  "
-                f"{table:17}  "
-                f"{resource.get('title')}"
-            )
+            print(f"{year}  {table:17}  {resource.get('title')}")
 
     print()
     print(f"Total : {len(resources)} ressources")
@@ -160,16 +154,10 @@ def download_all(
             destination = year_dir / filename
 
             if destination.exists():
-                print(
-                    f"[{index}/{total}] SKIP "
-                    f"{year}/{filename}"
-                )
+                print(f"[{index}/{total}] SKIP {year}/{filename}")
                 continue
 
-            print(
-                f"[{index}/{total}] GET  "
-                f"{year}/{filename}"
-            )
+            print(f"[{index}/{total}] GET  {year}/{filename}")
 
             download_resource(
                 resource,

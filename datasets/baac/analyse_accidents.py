@@ -1,9 +1,9 @@
-from pathlib import Path
-
 import csv
-import pandas as pd
-import matplotlib.pyplot as plt
+from pathlib import Path
+from typing import cast
 
+import matplotlib.pyplot as plt
+import pandas as pd
 
 DATA_DIR = Path("datasets/baac")
 OUTPUT_DIR = Path("reports/baac-2005-2024/tables")
@@ -40,7 +40,7 @@ def accidents_by_year() -> pd.DataFrame:
 
     for year in range(2005, 2025):
         path = DATA_DIR / str(year) / f"Caract_{year}.csv"
- 
+
         encoding = detect_encoding(path)
         separator = detect_separator(path, encoding)
 
@@ -60,17 +60,11 @@ def accidents_by_year() -> pd.DataFrame:
 
     result = pd.DataFrame(rows)
 
-    result["variation_pct"] = (
-        result["accidents"]
-        .pct_change()
-        .mul(100)
-    )
+    result["variation_pct"] = result["accidents"].pct_change().mul(100)
 
+    accidents_2005 = float(cast(int | float, result.loc[0, "accidents"]))
     result["variation_depuis_2005_pct"] = (
-        result["accidents"]
-        .div(result.loc[0, "accidents"])
-        .sub(1)
-        .mul(100)
+        result["accidents"].div(accidents_2005).sub(1).mul(100)
     )
 
     return result
@@ -93,9 +87,7 @@ def plot_accidents(result: pd.DataFrame) -> None:
         linewidth=1.8,
     )
 
-    ax.set_title(
-        "Accidents corporels enregistrés en France, 2005–2024"
-    )
+    ax.set_title("Accidents corporels enregistrés en France, 2005–2024")
     ax.set_xlabel("Année")
     ax.set_ylabel("Nombre d'accidents corporels")
 
@@ -112,9 +104,7 @@ def plot_accidents(result: pd.DataFrame) -> None:
 
     start = int(result.iloc[0]["accidents"])
     end = int(result.iloc[-1]["accidents"])
-    change = float(
-        result.iloc[-1]["variation_depuis_2005_pct"]
-    )
+    change = float(result.iloc[-1]["variation_depuis_2005_pct"])
 
     ax.annotate(
         f"{start:,}".replace(",", " "),
@@ -148,7 +138,7 @@ def plot_accidents(result: pd.DataFrame) -> None:
     plt.close(fig)
 
     print("Écrit :", output)
-    
+
 
 def main() -> None:
     result = accidents_by_year()

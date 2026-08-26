@@ -7,7 +7,6 @@ from pathlib import Path
 
 import pandas as pd
 
-
 YEAR_RE = re.compile(r"(20(?:0[5-9]|1\d|2[0-4]))")
 
 TABLE_PATTERNS = {
@@ -92,11 +91,7 @@ def inspect_csv(
     for column in df.columns:
         missing_count = int(df[column].isna().sum())
 
-        missing_rate = (
-            missing_count / row_count
-            if row_count
-            else 0.0
-        )
+        missing_rate = missing_count / row_count if row_count else 0.0
 
         rows.append(
             {
@@ -137,9 +132,7 @@ def build_schema_history(root: Path) -> pd.DataFrame:
     files = discover_files(root)
 
     if not files:
-        raise RuntimeError(
-            f"Aucun fichier BAAC 2005–2024 trouvé dans {root}"
-        )
+        raise RuntimeError(f"Aucun fichier BAAC 2005–2024 trouvé dans {root}")
 
     rows: list[dict[str, object]] = []
 
@@ -164,9 +157,7 @@ def build_schema_history(root: Path) -> pd.DataFrame:
 
 def print_summary(history: pd.DataFrame) -> None:
     """Affiche un résumé de l'inventaire."""
-    files = history[
-        ["annee", "table", "fichier"]
-    ].drop_duplicates()
+    files = history[["annee", "table", "fichier"]].drop_duplicates()
 
     print()
     print("Résumé")
@@ -176,11 +167,7 @@ def print_summary(history: pd.DataFrame) -> None:
     print("colonnes :", len(history))
     print()
 
-    coverage = (
-        files.groupby("annee")["table"]
-        .nunique()
-        .rename("nb_tables")
-    )
+    coverage = files.groupby("annee")["table"].nunique().rename("nb_tables")
 
     print("Tables détectées par année")
     print("---------------------------")
@@ -190,8 +177,7 @@ def print_summary(history: pd.DataFrame) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
-            "Inventorie l'évolution du schéma des fichiers "
-            "BAAC entre 2005 et 2024."
+            "Inventorie l'évolution du schéma des fichiers BAAC entre 2005 et 2024."
         )
     )
 
@@ -205,10 +191,7 @@ def main() -> None:
         "--output",
         type=Path,
         default=Path("datasets/baac/schema_history.csv"),
-        help=(
-            "CSV de sortie "
-            "(défaut: datasets/baac/schema_history.csv)"
-        ),
+        help=("CSV de sortie (défaut: datasets/baac/schema_history.csv)"),
     )
 
     args = parser.parse_args()

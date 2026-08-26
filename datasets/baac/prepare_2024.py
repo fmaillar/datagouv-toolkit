@@ -41,15 +41,12 @@ def aggregate_lieux(lieux):
     - nombre de catégories de route distinctes ;
     - nombre de voies distinctes renseignées.
     """
-    return (
-        lieux.groupby("Num_Acc", as_index=False)
-        .agg(
-            lieux_count=("Num_Acc", "size"),
-            catr_count=("catr", "nunique"),
-            voie_count=("voie", "nunique"),
-            vma_min=("vma", "min"),
-            vma_max=("vma", "max"),
-        )
+    return lieux.groupby("Num_Acc", as_index=False).agg(
+        lieux_count=("Num_Acc", "size"),
+        catr_count=("catr", "nunique"),
+        voie_count=("voie", "nunique"),
+        vma_min=("vma", "min"),
+        vma_max=("vma", "max"),
     )
 
 

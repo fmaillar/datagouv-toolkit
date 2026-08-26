@@ -5,6 +5,7 @@ from prepare_2024 import build_analytic_dataset
 
 OUTPUT = Path("datasets/baac/2024/baac_2024_clean.csv")
 
+
 def parse_decimal_comma(series: pd.Series) -> pd.Series:
     """Convertit une série texte avec virgule décimale en float."""
     return pd.to_numeric(
@@ -53,7 +54,6 @@ def main() -> None:
     print("---------")
     print("lignes   :", len(cleaned))
     print("colonnes :", len(cleaned.columns))
-
 
     for column in ("lat", "long", "an_nais", "occutc", "heure", "minute"):
         print(f"{column:10} : {cleaned[column].dtype}")
