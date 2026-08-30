@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Statistiques reproductibles sur un snapshot du catalogue data.gouv.fr.
 
-Le script analyse localement les exports ``datasets.csv`` et ``resources.csv``
+Le script analyse localement les exports ``datasets.csv`` et ``resources.parquet``
 du jeu « Catalogue des données de data.gouv.fr ». Contrairement à la recherche
 paginée de l'API, un snapshot local fournit un corpus stable et reproductible.
 
@@ -41,6 +41,8 @@ import sys
 from collections import Counter
 from pathlib import Path
 
+import pyarrow.parquet as pq
+
 from normalize import (
     normalize_format,
     normalize_frequency,
@@ -48,7 +50,7 @@ from normalize import (
 )
 
 DATASETS_FILENAME = "datasets.csv"
-RESOURCES_FILENAME = "resources.csv"
+RESOURCES_FILENAME = "resources.parquet"
 DEFAULT_TOP = 15
 
 # Certains champs des exports data.gouv.fr, notamment les descriptions ou
@@ -208,10 +210,13 @@ def collect_resource_stats(path, candidate_ids, resource_format_filter=None):
         else None
     )
 
-    with path.open(encoding="utf-8", newline="") as file:
-        reader = csv.DictReader(file, delimiter=";")
+    parquet = pq.ParquetFile(path)
 
-        for row in reader:
+    for batch in parquet.iter_batches(
+        columns=["dataset.id", "format", "filesize"],
+        batch_size=100_000,
+    ):
+        for row in batch.to_pylist():
             total_resources += 1
 
             dataset_id = row.get("dataset.id")
@@ -348,7 +353,7 @@ def print_stats(query, snapshot, dataset_stats, resource_stats, top, args):
 
 
 def resolve_snapshot(path):
-    """Vérifie le snapshot et retourne les deux fichiers CSV attendus."""
+    """Vérifie le snapshot et retourne les fichiers catalogue attendus."""
     snapshot = path.expanduser().resolve()
     datasets = snapshot / DATASETS_FILENAME
     resources = snapshot / RESOURCES_FILENAME
@@ -379,7 +384,7 @@ def build_parser():
         "--snapshot",
         type=Path,
         required=True,
-        help="Répertoire contenant datasets.csv et resources.csv",
+        help="Répertoire contenant datasets.csv et resources.parquet",
     )
     parser.add_argument(
         "--producer",

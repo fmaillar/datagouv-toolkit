@@ -6,6 +6,8 @@ from argparse import Namespace
 from collections import Counter
 from pathlib import Path
 
+import pyarrow as pa
+import pyarrow.parquet as pq
 import pytest
 
 import catalog_stats as module
@@ -25,6 +27,15 @@ from catalog_stats import (
 )
 
 
+def write_parquet(path, fieldnames, rows):
+    """Écrit une petite fixture Parquet pour les tests."""
+    data = {
+        field: [row.get(field, "") for row in rows]
+        for field in fieldnames
+    }
+    table = pa.table(data)
+    pq.write_table(table, path, compression="zstd")
+
 @pytest.mark.parametrize(
     ("value", "expected", "result"),
     [
@@ -36,6 +47,7 @@ from catalog_stats import (
         ("Toulouse métropole", None, True),
     ],
 )
+
 def test_text_matches(value, expected, result):
     assert text_matches(value, expected) is result
 
@@ -204,9 +216,9 @@ def write_csv(path, fieldnames, rows):
 
 
 def test_collect_resource_stats_filters_dataset_ids(tmp_path):
-    path = tmp_path / "resources.csv"
+    path = tmp_path / "resources.parquet"
 
-    write_csv(
+    write_parquet(
         path,
         [
             "dataset.id",
@@ -251,9 +263,9 @@ def test_collect_resource_stats_filters_dataset_ids(tmp_path):
 
 
 def test_collect_resource_stats_normalizes_formats(tmp_path):
-    path = tmp_path / "resources.csv"
+    path = tmp_path / "resources.parquet"
 
-    write_csv(
+    write_parquet(
         path,
         [
             "dataset.id",
@@ -297,9 +309,9 @@ def test_collect_resource_stats_normalizes_formats(tmp_path):
 
 
 def test_collect_resource_stats_filters_normalized_format(tmp_path):
-    path = tmp_path / "resources.csv"
+    path = tmp_path / "resources.parquet"
 
-    write_csv(
+    write_parquet(
         path,
         [
             "dataset.id",
@@ -339,9 +351,9 @@ def test_collect_resource_stats_filters_normalized_format(tmp_path):
 
 
 def test_collect_resource_stats_ignores_invalid_filesize(tmp_path):
-    path = tmp_path / "resources.csv"
+    path = tmp_path / "resources.parquet"
 
-    write_csv(
+    write_parquet(
         path,
         [
             "dataset.id",
@@ -653,13 +665,13 @@ def test_print_stats_known_size(
 
 def test_resolve_snapshot(tmp_path: Path) -> None:
     (tmp_path / "datasets.csv").write_text("", encoding="utf-8")
-    (tmp_path / "resources.csv").write_text("", encoding="utf-8")
+    (tmp_path / "resources.parquet").touch()
 
     snapshot, datasets, resources = resolve_snapshot(tmp_path)
 
     assert snapshot == tmp_path.resolve()
     assert datasets == snapshot / "datasets.csv"
-    assert resources == snapshot / "resources.csv"
+    assert resources == snapshot / "resources.parquet"
 
 
 def test_resolve_snapshot_rejects_missing_files(tmp_path: Path) -> None:
@@ -705,7 +717,7 @@ def test_main_success(
     tmp_path: Path,
 ) -> None:
     datasets = tmp_path / "datasets.csv"
-    resources = tmp_path / "resources.csv"
+    resources = tmp_path / "resources.parquet"
 
     monkeypatch.setattr(
         module,
@@ -767,7 +779,7 @@ def test_main_with_format_filter(
     tmp_path: Path,
 ) -> None:
     datasets = tmp_path / "datasets.csv"
-    resources = tmp_path / "resources.csv"
+    resources = tmp_path / "resources.parquet"
 
     candidates = {
         "a": {
@@ -909,7 +921,7 @@ def test_main_handles_csv_error(
         lambda path: (
             tmp_path,
             tmp_path / "datasets.csv",
-            tmp_path / "resources.csv",
+            tmp_path / "resources.parquet",
         ),
     )
 
