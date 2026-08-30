@@ -11,3 +11,5 @@ snapshot/
 .coverage
 htmlcov/
 *.egg-info/
+
+dist/
