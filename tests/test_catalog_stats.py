@@ -1,6 +1,5 @@
 """Tests unitaires de catalog_stats.py."""
 
-import csv
 import sys
 from argparse import Namespace
 from collections import Counter
@@ -208,13 +207,6 @@ def test_build_dataset_stats():
     )
 
 
-def write_csv(path, fieldnames, rows):
-    with path.open("w", encoding="utf-8", newline="") as file:
-        writer = csv.DictWriter(file, fieldnames=fieldnames, delimiter=";")
-        writer.writeheader()
-        writer.writerows(rows)
-
-
 def test_collect_resource_stats_filters_dataset_ids(tmp_path):
     path = tmp_path / "resources.parquet"
 
@@ -401,9 +393,9 @@ def test_format_size(size, expected):
 
 
 def test_collect_dataset_candidates(tmp_path: Path) -> None:
-    path = tmp_path / "datasets.csv"
+    path = tmp_path / "datasets.parquet"
 
-    write_csv(
+    write_parquet(
         path,
         [
             "id",
@@ -469,9 +461,9 @@ def test_collect_dataset_candidates(tmp_path: Path) -> None:
 
 
 def test_collect_dataset_candidates_applies_filters(tmp_path: Path) -> None:
-    path = tmp_path / "datasets.csv"
+    path = tmp_path / "datasets.parquet"
 
-    write_csv(
+    write_parquet(
         path,
         [
             "id",
@@ -664,13 +656,13 @@ def test_print_stats_known_size(
 
 
 def test_resolve_snapshot(tmp_path: Path) -> None:
-    (tmp_path / "datasets.csv").write_text("", encoding="utf-8")
+    (tmp_path / "datasets.parquet").write_text("", encoding="utf-8")
     (tmp_path / "resources.parquet").touch()
 
     snapshot, datasets, resources = resolve_snapshot(tmp_path)
 
     assert snapshot == tmp_path.resolve()
-    assert datasets == snapshot / "datasets.csv"
+    assert datasets == snapshot / "datasets.parquet"
     assert resources == snapshot / "resources.parquet"
 
 
@@ -716,7 +708,7 @@ def test_main_success(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
-    datasets = tmp_path / "datasets.csv"
+    datasets = tmp_path / "datasets.parquet"
     resources = tmp_path / "resources.parquet"
 
     monkeypatch.setattr(
@@ -778,7 +770,7 @@ def test_main_with_format_filter(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
-    datasets = tmp_path / "datasets.csv"
+    datasets = tmp_path / "datasets.parquet"
     resources = tmp_path / "resources.parquet"
 
     candidates = {
@@ -911,7 +903,7 @@ def test_main_handles_errors(
     assert module.main() == expected_code
 
 
-def test_main_handles_csv_error(
+def test_main_handles_parquet_error(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
@@ -920,7 +912,7 @@ def test_main_handles_csv_error(
         "resolve_snapshot",
         lambda path: (
             tmp_path,
-            tmp_path / "datasets.csv",
+            tmp_path / "datasets.parquet",
             tmp_path / "resources.parquet",
         ),
     )
@@ -928,7 +920,7 @@ def test_main_handles_csv_error(
     monkeypatch.setattr(
         module,
         "collect_dataset_candidates",
-        lambda *args, **kwargs: (_ for _ in ()).throw(csv.Error("broken")),
+        lambda *args, **kwargs: (_ for _ in ()).throw(pa.ArrowInvalid("broken")),
     )
 
     monkeypatch.setattr(
