@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Statistiques reproductibles sur un snapshot du catalogue data.gouv.fr.
 
-Le script analyse localement les exports ``datasets.csv`` et ``resources.parquet``
+Le script analyse localement les exports ``datasets.parquet`` et ``resources.parquet``
 du jeu « Catalogue des données de data.gouv.fr ». Contrairement à la recherche
 paginée de l'API, un snapshot local fournit un corpus stable et reproductible.
 
@@ -36,11 +36,11 @@ les tags et le producteur du dataset.
 """
 
 import argparse
-import csv
 import sys
 from collections import Counter
 from pathlib import Path
 
+import pyarrow as pa
 import pyarrow.parquet as pq
 
 from normalize import (
@@ -49,13 +49,9 @@ from normalize import (
     normalize_license,
 )
 
-DATASETS_FILENAME = "datasets.csv"
+DATASETS_FILENAME = "datasets.parquet"
 RESOURCES_FILENAME = "resources.parquet"
 DEFAULT_TOP = 15
-
-# Certains champs des exports data.gouv.fr, notamment les descriptions ou
-# métadonnées JSON, dépassent la limite par défaut du module csv.
-csv.field_size_limit(sys.maxsize)
 
 
 def format_size(size):
@@ -145,7 +141,7 @@ def collect_dataset_candidates(
     license_name=None,
     frequency=None,
 ):
-    """Parcourt ``datasets.csv`` et retourne les candidats retenus.
+    """Parcourt ``datasets.parquet`` et retourne les candidats retenus.
 
     Les métadonnées minimales nécessaires aux statistiques sont conservées en
     mémoire. Cela permet ensuite de restreindre les statistiques dataset aux
@@ -155,10 +151,23 @@ def collect_dataset_candidates(
     candidates = {}
     total_datasets = 0
 
-    with path.open(encoding="utf-8", newline="") as file:
-        reader = csv.DictReader(file, delimiter=";")
+    parquet = pq.ParquetFile(path)
 
-        for row in reader:
+    for batch in parquet.iter_batches(
+        columns=[
+            "id",
+            "title",
+            "description_short",
+            "description",
+            "tags",
+            "organization",
+            "owner",
+            "license",
+            "frequency",
+        ],
+        batch_size=100_000,
+    ):
+        for row in batch.to_pylist():
             total_datasets += 1
 
             if not dataset_matches(
@@ -384,7 +393,7 @@ def build_parser():
         "--snapshot",
         type=Path,
         required=True,
-        help="Répertoire contenant datasets.csv et resources.parquet",
+        help="Répertoire contenant datasets.parquet et resources.parquet",
     )
     parser.add_argument(
         "--producer",
@@ -464,11 +473,7 @@ def main():
         print(f"Erreur : {exc}", file=sys.stderr)
         return 1
 
-    except csv.Error as exc:
-        print(f"Erreur CSV : {exc}", file=sys.stderr)
-        return 1
-
-    except OSError as exc:
+    except (OSError, pa.ArrowInvalid) as exc:
         print(f"Erreur fichier : {exc}", file=sys.stderr)
         return 1
 
