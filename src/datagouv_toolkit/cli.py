@@ -61,12 +61,19 @@ def command_download(args: argparse.Namespace) -> None:
     if not resources:
         raise ValueError("Aucune ressource correspondante.")
 
-    results = download_resources(
-        resources,
-        args.output,
-        overwrite=args.overwrite,
-        progress=not json_output,
-    )
+    if json_output:
+        results = download_resources(
+            resources,
+            args.output,
+            overwrite=args.overwrite,
+            progress=False,
+        )
+    else:
+        results = download_resources(
+            resources,
+            args.output,
+            overwrite=args.overwrite,
+        )
 
     if json_output:
         payload = {
