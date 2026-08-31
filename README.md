@@ -18,6 +18,12 @@ datagouv --help
 
 Les anciens points d'entrée spécialisés (`datagouv-download`, `datagouv-workflow`, `datagouv-inspect-csv` et `datagouv-catalog-stats`) restent disponibles pour compatibilité.
 
+## Tutoriel
+
+Pour une prise en main progressive avec explications des notions d'API HTTP, JSON, datasets, ressources, métadonnées, filtrage, data profiling, pipelines et reproductibilité :
+
+- [Tutoriel approfondi de `datagouv`](TUTORIAL.md)
+
 ## Utilisation
 
 ### Rechercher un dataset
