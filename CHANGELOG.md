@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- Machine-readable `--json` output for `datagouv inspect-csv`, exposing file metadata, missing values, cardinalities, candidate keys, duplicate counts, low-cardinality distributions, and preview rows.
+- Machine-readable `--json` output for `datagouv catalog-stats`, exposing normalized filters, dataset/resource totals, known and unknown resource sizes, and ranked producers, formats, licenses, and update frequencies.
+- Focused tests covering structured CSV audits and structured catalog statistics.
+
+### Changed
+
+- CSV workflow auditing now reuses `analyze_csv()` and `format_csv_audit()` directly instead of capturing `stdout` from the human-readable `inspect_csv()` command.
+- Workflow audit reports are written directly to their target files while JSON workflow execution remains free of human progress output.
+- Documentation now includes `jq` examples for workflow, CSV-audit, and catalog-statistics JSON output.
+
 ## [0.3.0] - 2026-08-31
 
 ### Added
