@@ -356,3 +356,20 @@ def test_main_handles_errors(monkeypatch, capsys, exception, message, code):
 
     assert cli.main() == code
     assert message in capsys.readouterr().err
+
+
+def test_json_option_on_supported_commands():
+    parser = cli.build_parser()
+
+    commands = [
+        ["search", "transport", "--json"],
+        ["dataset", "example", "--json"],
+        ["resources", "example", "--json"],
+        ["metadata", "example", "--json"],
+        ["stats", "example", "--json"],
+        ["organization", "org-id", "--json"],
+    ]
+
+    for argv in commands:
+        args = parser.parse_args(argv)
+        assert args.json is True

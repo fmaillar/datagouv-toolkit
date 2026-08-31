@@ -28,6 +28,15 @@ def add_dataset_selector(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def add_json_option(parser: argparse.ArgumentParser) -> None:
+    """Ajoute une option de sortie JSON à une sous-commande."""
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Afficher le résultat au format JSON",
+    )
+
+
 def command_download(args: argparse.Namespace) -> None:
     """Télécharge les ressources sélectionnées d'un dataset."""
     dataset = datagouv.resolve_dataset(
@@ -149,6 +158,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=10,
         help="Nombre de résultats à afficher (défaut: 10)",
     )
+    add_json_option(search_parser)
     search_parser.set_defaults(func=datagouv.command_search)
 
     dataset_parser = subparsers.add_parser(
@@ -156,6 +166,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Afficher le résumé d'un jeu de données",
     )
     add_dataset_selector(dataset_parser)
+    add_json_option(dataset_parser)
     dataset_parser.set_defaults(func=datagouv.command_dataset)
 
     resources_parser = subparsers.add_parser(
@@ -163,6 +174,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Lister les ressources d'un jeu de données",
     )
     add_dataset_selector(resources_parser)
+    add_json_option(resources_parser)
     resources_parser.set_defaults(func=datagouv.command_resources)
 
     metadata_parser = subparsers.add_parser(
@@ -170,6 +182,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Afficher les métadonnées principales d'un jeu de données",
     )
     add_dataset_selector(metadata_parser)
+    add_json_option(metadata_parser)
     metadata_parser.set_defaults(func=datagouv.command_metadata)
 
     stats_parser = subparsers.add_parser(
@@ -177,6 +190,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Afficher des statistiques sur les ressources d'un dataset",
     )
     add_dataset_selector(stats_parser)
+    add_json_option(stats_parser)
     stats_parser.set_defaults(func=datagouv.command_stats)
 
     inspect_parser = subparsers.add_parser(
@@ -194,6 +208,7 @@ def build_parser() -> argparse.ArgumentParser:
         "organization_id",
         help="Identifiant de l'organisation",
     )
+    add_json_option(organization_parser)
     organization_parser.set_defaults(func=datagouv.command_organization)
 
     download_parser = subparsers.add_parser(
