@@ -258,11 +258,20 @@ def format_size(size):
 
 def command_search(args):
     data = search_datasets(args.query, args.limit)
+
+    if getattr(args, "json", False):
+        print(json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True))
+        return
+
     print_search_results(data)
 
 
 def command_dataset(args):
     dataset = resolve_dataset(args.dataset, producer=args.producer, title=args.title)
+
+    if getattr(args, "json", False):
+        print(json.dumps(dataset, ensure_ascii=False, indent=2, sort_keys=True))
+        return
 
     print_dataset_summary(dataset)
 
@@ -278,6 +287,17 @@ def command_dataset(args):
 def command_resources(args):
     dataset = resolve_dataset(args.dataset, producer=args.producer, title=args.title)
 
+    if getattr(args, "json", False):
+        print(
+            json.dumps(
+                dataset.get("resources", []),
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return
+
     print(dataset.get("title", "?"))
     print()
 
@@ -286,6 +306,17 @@ def command_resources(args):
 
 def command_organization(args):
     organization = get_organization(args.organization_id)
+
+    if getattr(args, "json", False):
+        print(
+            json.dumps(
+                organization,
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return
 
     print(organization.get("name", "?"))
     print(f"ID  : {organization.get('id', '?')}")
@@ -379,6 +410,15 @@ def dataset_stats(dataset):
 def command_stats(args):
     dataset = resolve_dataset(args.dataset, producer=args.producer, title=args.title)
     stats = dataset_stats(dataset)
+
+    if getattr(args, "json", False):
+        payload = {
+            **stats,
+            "formats": dict(stats["formats"]),
+            "domains": dict(stats["domains"]),
+        }
+        print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
+        return
 
     print(dataset.get("title", "?"))
     print()
@@ -518,6 +558,28 @@ def command_metadata(args):
     else:
         owner = dataset.get("owner")
         producer = owner.get("name", "?") if owner else "?"
+
+    if getattr(args, "json", False):
+        payload = {
+            "title": dataset.get("title"),
+            "id": dataset.get("id"),
+            "producer": producer,
+            "license": dataset.get("license"),
+            "created_at": dataset.get("created_at"),
+            "last_modified": dataset.get("last_modified"),
+            "last_update": dataset.get("last_update"),
+            "frequency": dataset.get("frequency"),
+            "frequency_date": dataset.get("frequency_date"),
+            "tags": dataset.get("tags"),
+            "temporal_coverage": dataset.get("temporal_coverage"),
+            "spatial": dataset.get("spatial"),
+            "resources": len(dataset.get("resources", [])),
+            "page": dataset.get("page"),
+            "quality": dataset.get("quality"),
+            "metrics": dataset.get("metrics"),
+        }
+        print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
+        return
 
     fields = [
         ("Titre", dataset.get("title")),
