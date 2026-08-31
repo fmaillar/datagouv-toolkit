@@ -20,6 +20,7 @@ def run_workflow(
     *,
     producer: str | None = None,
     dataset_title: str | None = None,
+    first: bool = False,
     resource_format: str | None = None,
     resource_title: str | None = None,
     overwrite: bool = False,
@@ -31,6 +32,7 @@ def run_workflow(
         dataset_query,
         producer=producer,
         title=dataset_title,
+        first=first,
     )
 
     resources = select_resources(
@@ -146,6 +148,11 @@ def parse_args() -> argparse.Namespace:
         help="Filtre supplémentaire sur le titre du dataset.",
     )
     parser.add_argument(
+        "--first",
+        action="store_true",
+        help="Sélectionne le premier résultat sans choix interactif.",
+    )
+    parser.add_argument(
         "--format",
         dest="resource_format",
         help="Format des ressources à sélectionner.",
@@ -181,6 +188,7 @@ def main() -> None:
         args.output,
         producer=args.producer,
         dataset_title=args.dataset_title,
+        first=args.first,
         resource_format=args.resource_format,
         resource_title=args.resource_title,
         overwrite=args.overwrite,
