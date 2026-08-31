@@ -152,3 +152,25 @@ def test_compatibility_parser_accepts_json() -> None:
     )
 
     assert args.json is True
+
+def test_human_catalog_report_preserves_remaining_values(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    snapshot = make_snapshot(tmp_path)
+    args = cli.build_parser().parse_args(
+        [
+            "catalog-stats",
+            "transport",
+            "--snapshot",
+            str(snapshot),
+            "--top",
+            "1",
+        ]
+    )
+
+    cli.command_catalog_stats(args)
+    output = capsys.readouterr().out
+
+    assert output.count("... 1 autre(s) valeur(s)") == 4
+
