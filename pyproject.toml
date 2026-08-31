@@ -55,7 +55,7 @@ Repository = "https://github.com/fmaillar/datagouv-toolkit"
 Issues = "https://github.com/fmaillar/datagouv-toolkit/issues"
 
 [project.scripts]
-datagouv = "datagouv:main"
+datagouv = "cli:main"
 datagouv-download = "download_resources:main"
 datagouv-workflow = "dataset_workflow:main"
 datagouv-inspect-csv = "inspect_csv:main"
@@ -64,6 +64,7 @@ datagouv-catalog-stats = "catalog_stats:main"
 [tool.setuptools]
 py-modules = [
   "catalog_stats",
+  "cli",
   "datagouv",
   "dataset_workflow",
   "download_resources",
