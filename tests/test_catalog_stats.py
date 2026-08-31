@@ -9,8 +9,8 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
-import catalog_stats as module
-from catalog_stats import (
+from datagouv_toolkit import catalog_stats as module
+from datagouv_toolkit.catalog_stats import (
     build_dataset_stats,
     collect_dataset_candidates,
     collect_resource_stats,

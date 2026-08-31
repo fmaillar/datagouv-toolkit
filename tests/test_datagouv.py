@@ -3,7 +3,7 @@ from argparse import Namespace
 
 import pytest
 
-import datagouv as module
+from datagouv_toolkit import datagouv as module
 
 
 class FakeResponse:

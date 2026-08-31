@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 import requests
 
-import cli
+from datagouv_toolkit import cli
 
 
 def test_build_parser_exposes_unified_commands():
