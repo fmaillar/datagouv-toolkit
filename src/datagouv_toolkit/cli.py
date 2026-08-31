@@ -43,6 +43,84 @@ def add_json_option(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def build_resource_manifest(
+    dataset: dict,
+    resources: list[dict],
+) -> dict:
+    """Construit un manifeste compact pour le handoff vers d'autres outils."""
+    return {
+        "dataset": {
+            "id": dataset.get("id"),
+            "title": dataset.get("title"),
+        },
+        "resources": [
+            {
+                "id": resource.get("id"),
+                "title": resource.get("title"),
+                "format": resource.get("format"),
+                "filesize": resource.get("filesize"),
+                "url": resource.get("url"),
+            }
+            for resource in resources
+        ],
+    }
+
+
+def command_resources(args: argparse.Namespace) -> None:
+    """Liste ou expose les ressources sélectionnées d'un dataset."""
+    dataset = datagouv.resolve_dataset(
+        args.dataset,
+        producer=args.producer,
+        title=args.title,
+        first=args.first,
+    )
+    resources = select_resources(
+        dataset,
+        resource_format=args.resource_format,
+        title=args.resource_title,
+    )
+
+    if not resources:
+        raise ValueError("Aucune ressource correspondante.")
+
+    if args.urls:
+        urls = [
+            str(resource["url"])
+            for resource in resources
+            if resource.get("url")
+        ]
+        if not urls:
+            raise ValueError("Aucune URL disponible pour les ressources sélectionnées.")
+        print(*urls, sep="\n")
+        return
+
+    if args.manifest:
+        print(
+            json.dumps(
+                build_resource_manifest(dataset, resources),
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return
+
+    if args.json:
+        print(
+            json.dumps(
+                resources,
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return
+
+    print(dataset.get("title", "?"))
+    print()
+    datagouv.print_resources({"resources": resources})
+
+
 def command_download(args: argparse.Namespace) -> None:
     """Télécharge les ressources sélectionnées d'un dataset."""
     dataset = datagouv.resolve_dataset(
@@ -253,8 +331,37 @@ def build_parser() -> argparse.ArgumentParser:
         help="Lister les ressources d'un jeu de données",
     )
     add_dataset_selector(resources_parser)
-    add_json_option(resources_parser)
-    resources_parser.set_defaults(func=datagouv.command_resources)
+    resources_parser.add_argument(
+        "--format",
+        dest="resource_format",
+        help="Filtrer les ressources par format",
+    )
+    resources_parser.add_argument(
+        "--resource-title",
+        help="Filtrer le titre des ressources",
+    )
+    resources_output = resources_parser.add_mutually_exclusive_group()
+    resources_output.add_argument(
+        "--json",
+        action="store_true",
+        help="Afficher les ressources sélectionnées au format JSON",
+    )
+    resources_output.add_argument(
+        "--urls",
+        action="store_true",
+        help="Afficher uniquement les URL, une par ligne",
+    )
+    resources_output.add_argument(
+        "--manifest",
+        action="store_true",
+        help="Afficher un manifeste JSON compact pour les outils externes",
+    )
+    resources_parser.set_defaults(
+        func=command_resources,
+        json=False,
+        urls=False,
+        manifest=False,
+    )
 
     metadata_parser = subparsers.add_parser(
         "metadata",
