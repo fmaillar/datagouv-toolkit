@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-31
+
+### Added
+
+- Machine-readable `--json` output for catalog exploration commands, dataset metadata, resources, statistics, organizations, downloads, and workflows.
+- Structured download results exposing each resource path and whether it was actually downloaded or skipped.
+- Structured workflow results exposing download state, CSV audit state, and audit report paths per resource.
+- Subprocess-level CLI integration tests covering the real `python -m datagouv_toolkit.cli` entry point, command help, required arguments, and controlled failures without tracebacks.
+
+### Changed
+
+- Migrated the Python package to a standard `src/` layout and updated packaging, typing, tests, and tooling accordingly.
+- `datagouv download --json` and `datagouv workflow --json` now keep standard output parseable by suppressing human progress output.
+- Documentation now includes JSON examples and Unix-style composition with tools such as `jq`.
+- Quality checks are consolidated through the project `Makefile` while CI continues to validate Ruff, mypy, Bandit, tests, coverage, package build, metadata, and CLI installation.
+
 ## [0.2.1] - 2026-08-31
 
 ### Added
@@ -67,7 +83,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Ruff, mypy, Bandit, pytest, and coverage checks.
 - GPL-3.0-only license.
 
-[Unreleased]: https://github.com/fmaillar/datagouv-toolkit/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/fmaillar/datagouv-toolkit/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/fmaillar/datagouv-toolkit/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/fmaillar/datagouv-toolkit/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/fmaillar/datagouv-toolkit/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/fmaillar/datagouv-toolkit/compare/v0.1.0...v0.1.1
