@@ -266,7 +266,7 @@ def test_search_parser_maps_arguments():
 def test_dataset_parsers_map_arguments():
     expected = {
         "dataset": cli.datagouv.command_dataset,
-        "resources": cli.datagouv.command_resources,
+        "resources": cli.command_resources,
         "stats": cli.datagouv.command_stats,
         "inspect": cli.datagouv.command_inspect,
         "metadata": cli.datagouv.command_metadata,
@@ -373,6 +373,7 @@ def test_json_option_on_supported_commands():
     for argv in commands:
         args = parser.parse_args(argv)
         assert args.json is True
+
 
 def test_dataset_selector_accepts_first() -> None:
     parser = cli.build_parser()
