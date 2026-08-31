@@ -107,6 +107,19 @@ datagouv workflow \
 
 Le workflow résout le dataset, sélectionne les ressources, les télécharge puis audite automatiquement les fichiers CSV. Il s'appuie sur les mêmes résultats structurés de téléchargement que la commande `download`.
 
+Pour automatiser le workflow sans sortie de progression humaine :
+
+```bash
+datagouv workflow \
+  "accidents corporels" \
+  --producer "Ministère de l'intérieur" \
+  --format csv \
+  --resource-title "Caract_2024" \
+  --output data \
+  --audit-dir audits \
+  --json | jq '.resources[] | {path, downloaded, audited, audit_path}'
+```
+
 ### Auditer un CSV local
 
 ```bash
@@ -118,6 +131,15 @@ Pour rediriger un audit volumineux :
 ```bash
 datagouv inspect-csv fichier.csv > audit.txt
 ```
+
+L'audit est également disponible comme objet JSON structuré :
+
+```bash
+datagouv inspect-csv fichier.csv --json \
+  | jq '.file, .candidate_keys, .duplicate_rows'
+```
+
+Cette forme expose notamment les propriétés du fichier, les valeurs manquantes, cardinalités, clés candidates, distributions à faible cardinalité, doublons et aperçu sous une forme directement consommable par un programme.
 
 ### Statistiques sur les ressources d'un dataset
 
@@ -142,6 +164,16 @@ datagouv catalog-stats "énergie" \
   --license fr-lo-2.0 \
   --frequency annual
 ```
+
+Pour exploiter les statistiques dans un script ou avec `jq` :
+
+```bash
+datagouv catalog-stats "transport" \
+  --snapshot snapshot/2026-08-25 \
+  --json | jq '.datasets, .resources, .rankings.formats'
+```
+
+La sortie structurée contient le snapshot résolu, la requête, les filtres normalisés, les totaux de datasets et ressources, les tailles connues ou inconnues ainsi que les classements des producteurs, formats, licences et fréquences.
 
 ## Commandes disponibles
 
