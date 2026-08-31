@@ -43,6 +43,7 @@ dev = [
   "bandit",
   "build",
   "mypy",
+  "pandas-stubs",
   "pytest",
   "pytest-cov",
   "ruff",
