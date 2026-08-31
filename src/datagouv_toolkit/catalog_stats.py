@@ -279,7 +279,7 @@ def build_dataset_stats(total_datasets, candidates, selected_ids):
     }
 
 
-def print_counter(title, counter, top):
+def print_counter(title, counter, top, *, remaining_values=None):
     """Affiche les valeurs les plus fréquentes d'un ``Counter``."""
     print()
     print(title)
@@ -292,7 +292,10 @@ def print_counter(title, counter, top):
     for value, count in counter.most_common(top):
         print(f"{count:6}  {value}")
 
-    remaining = len(counter) - min(top, len(counter))
+    if remaining_values is None:
+        remaining = len(counter) - min(top, len(counter))
+    else:
+        remaining = remaining_values
 
     if remaining > 0:
         print(f"... {remaining} autre(s) valeur(s)")
@@ -318,8 +321,18 @@ def print_active_filters(args):
         print(f"Filtres              : {', '.join(filters)}")
 
 
-def print_stats(query, snapshot, dataset_stats, resource_stats, top, args):
+def print_stats(
+    query,
+    snapshot,
+    dataset_stats,
+    resource_stats,
+    top,
+    args,
+    *,
+    remaining_values=None,
+):
     """Affiche les statistiques agrégées du snapshot."""
+    remaining_values = remaining_values or {}
     print(f"Snapshot             : {snapshot}")
     print(f"Recherche            : {query}")
     print_active_filters(args)
@@ -342,21 +355,25 @@ def print_stats(query, snapshot, dataset_stats, resource_stats, top, args):
         "Principaux producteurs",
         dataset_stats["producers"],
         top,
+        remaining_values=remaining_values.get("producers"),
     )
     print_counter(
         "Formats de ressources",
         resource_stats["formats"],
         top,
+        remaining_values=remaining_values.get("formats"),
     )
     print_counter(
         "Licences",
         dataset_stats["licenses"],
         top,
+        remaining_values=remaining_values.get("licenses"),
     )
     print_counter(
         "Fréquences de mise à jour",
         dataset_stats["frequencies"],
         top,
+        remaining_values=remaining_values.get("frequencies"),
     )
 
 
