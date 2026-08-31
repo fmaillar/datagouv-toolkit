@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- Unified `datagouv` CLI for catalog exploration, resource downloads, workflows, CSV audits, and local catalog statistics.
+- `datagouv download`, `datagouv workflow`, `datagouv inspect-csv`, and `datagouv catalog-stats` subcommands.
+- Tests covering the unified CLI argument mapping and command delegation.
+
+### Changed
+
+- The installed `datagouv` command now uses `cli.py` as its entry point.
+- Legacy specialized console commands remain available for backward compatibility.
+
 ## [0.1.1] - 2026-08-25
 
 ### Added
