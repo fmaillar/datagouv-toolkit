@@ -4,7 +4,39 @@ from pathlib import Path
 import pytest
 
 from datagouv_toolkit import dataset_workflow as module
-from datagouv_toolkit.dataset_workflow import run_workflow
+from datagouv_toolkit.dataset_workflow import build_csv_audit, run_workflow
+
+
+def test_build_csv_audit_uses_structured_analysis(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "data.csv"
+    audit = {"file": {"path": str(path)}}
+    calls = []
+
+    def fake_analyze(csv_path):
+        calls.append(("analyze", csv_path))
+        return audit
+
+    def fake_format(value):
+        calls.append(("format", value))
+        return "formatted audit"
+
+    monkeypatch.setattr(
+        "datagouv_toolkit.dataset_workflow.analyze_csv",
+        fake_analyze,
+    )
+    monkeypatch.setattr(
+        "datagouv_toolkit.dataset_workflow.format_csv_audit",
+        fake_format,
+    )
+
+    assert build_csv_audit(path) == "formatted audit"
+    assert calls == [
+        ("analyze", path),
+        ("format", audit),
+    ]
 
 
 def test_run_workflow_downloads_and_audits_csv(
@@ -48,7 +80,7 @@ def test_run_workflow_downloads_and_audits_csv(
         fake_download,
     )
     monkeypatch.setattr(
-        "datagouv_toolkit.dataset_workflow.inspect_csv",
+        "datagouv_toolkit.dataset_workflow.build_csv_audit",
         fake_inspect,
     )
 
@@ -93,7 +125,7 @@ def test_run_workflow_does_not_audit_non_csv(
     audited = []
 
     monkeypatch.setattr(
-        "datagouv_toolkit.dataset_workflow.inspect_csv",
+        "datagouv_toolkit.dataset_workflow.build_csv_audit",
         lambda path: audited.append(path),
     )
 
@@ -136,7 +168,7 @@ def test_run_workflow_can_disable_audit(
     audited = []
 
     monkeypatch.setattr(
-        "datagouv_toolkit.dataset_workflow.inspect_csv",
+        "datagouv_toolkit.dataset_workflow.build_csv_audit",
         lambda path: audited.append(path),
     )
 
@@ -183,7 +215,7 @@ def test_run_workflow_audits_existing_csv_after_skip(
     audited = []
 
     monkeypatch.setattr(
-        "datagouv_toolkit.dataset_workflow.inspect_csv",
+        "datagouv_toolkit.dataset_workflow.build_csv_audit",
         lambda path: audited.append(path),
     )
 
@@ -256,7 +288,7 @@ def test_run_workflow_forwards_filters(
         lambda resource, destination, *, overwrite=False: True,
     )
     monkeypatch.setattr(
-        "datagouv_toolkit.dataset_workflow.inspect_csv",
+        "datagouv_toolkit.dataset_workflow.build_csv_audit",
         lambda path: None,
     )
 
@@ -321,7 +353,7 @@ def test_run_workflow_forwards_overwrite(
         fake_download,
     )
     monkeypatch.setattr(
-        "datagouv_toolkit.dataset_workflow.inspect_csv",
+        "datagouv_toolkit.dataset_workflow.build_csv_audit",
         lambda path: None,
     )
 
@@ -399,10 +431,10 @@ def test_run_workflow_writes_audit_file(
     )
 
     def fake_inspect(path):
-        print(f"Audit de {path.name}")
+        return f"Audit de {path.name}"
 
     monkeypatch.setattr(
-        "datagouv_toolkit.dataset_workflow.inspect_csv",
+        "datagouv_toolkit.dataset_workflow.build_csv_audit",
         fake_inspect,
     )
 
@@ -448,7 +480,7 @@ def test_run_workflow_audit_dir_ignored_when_audit_disabled(
         lambda resource, destination, *, overwrite=False: True,
     )
     monkeypatch.setattr(
-        "datagouv_toolkit.dataset_workflow.inspect_csv",
+        "datagouv_toolkit.dataset_workflow.build_csv_audit",
         lambda path: None,
     )
 
