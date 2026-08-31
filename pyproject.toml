@@ -55,14 +55,20 @@ Repository = "https://github.com/fmaillar/datagouv-toolkit"
 Issues = "https://github.com/fmaillar/datagouv-toolkit/issues"
 
 [project.scripts]
-datagouv = "cli:main"
-datagouv-download = "download_resources:main"
-datagouv-workflow = "dataset_workflow:main"
-datagouv-inspect-csv = "inspect_csv:main"
-datagouv-catalog-stats = "catalog_stats:main"
+datagouv = "datagouv_toolkit.cli:main"
+datagouv-download = "datagouv_toolkit.download_resources:main"
+datagouv-workflow = "datagouv_toolkit.dataset_workflow:main"
+datagouv-inspect-csv = "datagouv_toolkit.inspect_csv:main"
+datagouv-catalog-stats = "datagouv_toolkit.catalog_stats:main"
 
 [tool.setuptools]
-py-modules = [
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff.lint.isort]
+known-first-party = [
   "catalog_stats",
   "cli",
   "datagouv",
