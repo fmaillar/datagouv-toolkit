@@ -103,7 +103,8 @@ def command_download(args: argparse.Namespace) -> None:
 
 def command_workflow(args: argparse.Namespace) -> None:
     """Télécharge un dataset puis audite automatiquement ses CSV."""
-    run_workflow(
+    json_output = getattr(args, "json", False)
+    result = run_workflow(
         args.dataset,
         args.output,
         producer=args.producer,
@@ -113,7 +114,39 @@ def command_workflow(args: argparse.Namespace) -> None:
         overwrite=args.overwrite,
         audit_csv=not args.no_audit,
         audit_dir=args.audit_dir,
+        progress=not json_output,
     )
+
+    if json_output:
+        payload = {
+            "dataset": {
+                "id": result["dataset"].get("id"),
+                "title": result["dataset"].get("title"),
+            },
+            "destination": str(result["destination"]),
+            "resources": [
+                {
+                    "resource": item["resource"],
+                    "path": str(item["path"].resolve()),
+                    "downloaded": item["downloaded"],
+                    "audited": item["audited"],
+                    "audit_path": (
+                        str(item["audit_path"].resolve())
+                        if item["audit_path"] is not None
+                        else None
+                    ),
+                }
+                for item in result["resources"]
+            ],
+        }
+        print(
+            json.dumps(
+                payload,
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            )
+        )
 
 
 def command_inspect_csv(args: argparse.Namespace) -> None:
@@ -313,6 +346,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         help="Répertoire dans lequel écrire les audits CSV",
     )
+    add_json_option(workflow_parser)
     workflow_parser.set_defaults(func=command_workflow)
 
     csv_parser = subparsers.add_parser(

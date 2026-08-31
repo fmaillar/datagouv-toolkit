@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 from contextlib import redirect_stdout
 from pathlib import Path
+from typing import Any
 
 from .datagouv import resolve_dataset
 from .download_resources import download_resource, download_resources, select_resources
@@ -20,7 +21,8 @@ def run_workflow(
     overwrite: bool = False,
     audit_csv: bool = True,
     audit_dir: Path | None = None,
-) -> None:
+    progress: bool = True,
+) -> dict[str, Any]:
     dataset = resolve_dataset(
         dataset_query,
         producer=producer,
@@ -33,9 +35,10 @@ def run_workflow(
         title=resource_title,
     )
 
-    print(f"Dataset    : {dataset['title']}")
-    print(f"Ressources : {len(resources)}")
-    print(f"Destination: {output_dir.resolve()}")
+    if progress:
+        print(f"Dataset    : {dataset['title']}")
+        print(f"Ressources : {len(resources)}")
+        print(f"Destination: {output_dir.resolve()}")
 
     if not resources:
         raise SystemExit("Aucune ressource correspondante.")
@@ -53,28 +56,36 @@ def run_workflow(
         download_func=download_resource,
     )
 
+    workflow_results: list[dict[str, Any]] = []
+
     for index, result in enumerate(
         results,
         start=1,
     ):
         destination = result["path"]
         downloaded = result["downloaded"]
+        audit_path: Path | None = None
+        audited = False
 
-        print()
-        print(f"[{index}/{len(results)}] {destination.name}")
-
-        if downloaded:
-            print("Téléchargement : OK")
-        else:
-            print("Téléchargement : SKIP")
+        if progress:
+            print()
+            print(f"[{index}/{len(results)}] {destination.name}")
+            if downloaded:
+                print("Téléchargement : OK")
+            else:
+                print("Téléchargement : SKIP")
 
         if audit_csv and destination.suffix.casefold() == ".csv":
+            audited = True
             if audit_dir is None:
-                print()
-                print("Audit CSV")
-                print("-" * 80)
-
-                inspect_csv(destination)
+                if progress:
+                    print()
+                    print("Audit CSV")
+                    print("-" * 80)
+                    inspect_csv(destination)
+                else:
+                    with redirect_stdout(None):
+                        inspect_csv(destination)
             else:
                 audit_dir.mkdir(
                     parents=True,
@@ -89,7 +100,24 @@ def run_workflow(
                 ):
                     inspect_csv(destination)
 
-                print(f"Audit       : {audit_path}")
+                if progress:
+                    print(f"Audit       : {audit_path}")
+
+        workflow_results.append(
+            {
+                "resource": result["resource"],
+                "path": destination,
+                "downloaded": downloaded,
+                "audited": audited,
+                "audit_path": audit_path,
+            }
+        )
+
+    return {
+        "dataset": dataset,
+        "destination": output_dir.resolve(),
+        "resources": workflow_results,
+    }
 
 
 def parse_args() -> argparse.Namespace:
