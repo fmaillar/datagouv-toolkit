@@ -348,7 +348,7 @@ def test_main_handles_errors(monkeypatch, capsys, exception, message, code):
                 "parse_args": lambda self: type(
                     "Args",
                     (),
-                    {"func": fail},
+                    {"func": staticmethod(fail)},
                 )()
             },
         )(),
