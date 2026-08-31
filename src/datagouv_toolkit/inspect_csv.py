@@ -60,23 +60,27 @@ def load_csv(
 
 def missing_values(df: pd.DataFrame) -> list[dict[str, Any]]:
     """Retourne les valeurs manquantes par colonne."""
-    missing = pd.DataFrame(
-        {
-            "column": [str(column) for column in df.columns],
-            "missing": df.isna().sum().astype(int).to_list(),
-            "percent": (df.isna().mean() * 100).astype(float).to_list(),
-        }
-    ).sort_values(
-        ["missing", "percent"],
-        ascending=False,
-    )
+    result: list[dict[str, Any]] = []
 
-    return missing.to_dict(orient="records")
+    for column in df.columns:
+        series = df[column]
+        result.append(
+            {
+                "column": str(column),
+                "missing": int(series.isna().sum()),
+                "percent": float(series.isna().mean() * 100),
+            }
+        )
+
+    return sorted(
+        result,
+        key=lambda row: (-row["missing"], -row["percent"]),
+    )
 
 
 def cardinalities(df: pd.DataFrame) -> list[dict[str, Any]]:
     """Retourne le nombre de valeurs distinctes par colonne."""
-    rows = []
+    rows: list[dict[str, Any]] = []
 
     for column in df.columns:
         unique = int(df[column].nunique(dropna=False))
@@ -242,9 +246,7 @@ def format_csv_audit(audit: dict[str, Any]) -> str:
             "=" * 80,
             "VALEURS MANQUANTES",
             "=" * 80,
-            pd.DataFrame(audit["missing_values"])
-            .set_index("column")
-            .to_string(),
+            pd.DataFrame(audit["missing_values"]).set_index("column").to_string(),
             "",
             "=" * 80,
             "DOUBLONS",
