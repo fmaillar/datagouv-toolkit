@@ -31,7 +31,7 @@ jobs:
         run: ruff check .
 
       - name: Mypy
-        run: mypy . --ignore-missing-imports
+        run: mypy
 
       - name: Bandit
         run: bandit -q -r src/datagouv_toolkit
