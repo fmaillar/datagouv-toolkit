@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -50,18 +51,54 @@ def command_download(args: argparse.Namespace) -> None:
         title=args.resource_title,
     )
 
-    print(f"Dataset    : {dataset['title']}")
-    print(f"Ressources : {len(resources)}")
-    print(f"Destination: {args.output.resolve()}")
+    json_output = getattr(args, "json", False)
+
+    if not json_output:
+        print(f"Dataset    : {dataset['title']}")
+        print(f"Ressources : {len(resources)}")
+        print(f"Destination: {args.output.resolve()}")
 
     if not resources:
         raise ValueError("Aucune ressource correspondante.")
 
-    download_resources(
-        resources,
-        args.output,
-        overwrite=args.overwrite,
-    )
+    if json_output:
+        results = download_resources(
+            resources,
+            args.output,
+            overwrite=args.overwrite,
+            progress=False,
+        )
+    else:
+        results = download_resources(
+            resources,
+            args.output,
+            overwrite=args.overwrite,
+        )
+
+    if json_output:
+        payload = {
+            "dataset": {
+                "id": dataset.get("id"),
+                "title": dataset.get("title"),
+            },
+            "destination": str(args.output.resolve()),
+            "resources": [
+                {
+                    "resource": result["resource"],
+                    "path": str(result["path"].resolve()),
+                    "downloaded": result["downloaded"],
+                }
+                for result in results
+            ],
+        }
+        print(
+            json.dumps(
+                payload,
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            )
+        )
 
 
 def command_workflow(args: argparse.Namespace) -> None:
@@ -237,6 +274,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Écraser les fichiers locaux existants",
     )
+    add_json_option(download_parser)
     download_parser.set_defaults(func=command_download)
 
     workflow_parser = subparsers.add_parser(
