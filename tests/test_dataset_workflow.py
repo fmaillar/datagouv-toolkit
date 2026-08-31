@@ -244,12 +244,14 @@ def test_run_workflow_forwards_filters(
         *,
         producer=None,
         title=None,
+        first=False,
     ):
         resolve_calls.append(
             {
                 "dataset_query": dataset_query,
                 "producer": producer,
                 "title": title,
+                "first": first,
             }
         )
         return dataset
@@ -306,6 +308,7 @@ def test_run_workflow_forwards_filters(
             "dataset_query": "transport",
             "producer": "Example org",
             "title": "Mobilité",
+            "first": False,
         }
     ]
 
@@ -579,6 +582,7 @@ def test_main_forwards_cli_arguments(
             "output_dir": tmp_path,
             "producer": None,
             "dataset_title": None,
+            "first": False,
             "resource_format": None,
             "resource_title": None,
             "overwrite": False,
