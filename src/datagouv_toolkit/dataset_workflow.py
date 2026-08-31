@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import argparse
-from contextlib import redirect_stdout
 from pathlib import Path
 from typing import Any
 
 from .datagouv import resolve_dataset
 from .download_resources import download_resource, download_resources, select_resources
-from .inspect_csv import inspect_csv
+from .inspect_csv import analyze_csv, format_csv_audit
+
+
+def build_csv_audit(path: Path) -> str:
+    """Construit le rapport texte d'un audit CSV sans écrire sur stdout."""
+    return format_csv_audit(analyze_csv(path))
 
 
 def run_workflow(
@@ -77,15 +81,14 @@ def run_workflow(
 
         if audit_csv and destination.suffix.casefold() == ".csv":
             audited = True
+            report = build_csv_audit(destination)
+
             if audit_dir is None:
                 if progress:
                     print()
                     print("Audit CSV")
                     print("-" * 80)
-                    inspect_csv(destination)
-                else:
-                    with redirect_stdout(None):
-                        inspect_csv(destination)
+                    print(report)
             else:
                 audit_dir.mkdir(
                     parents=True,
@@ -93,12 +96,7 @@ def run_workflow(
                 )
 
                 audit_path = audit_dir / f"{destination.name}.audit.txt"
-
-                with (
-                    audit_path.open("w", encoding="utf-8") as file,
-                    redirect_stdout(file),
-                ):
-                    inspect_csv(destination)
+                audit_path.write_text(f"{report}\n", encoding="utf-8")
 
                 if progress:
                     print(f"Audit       : {audit_path}")
