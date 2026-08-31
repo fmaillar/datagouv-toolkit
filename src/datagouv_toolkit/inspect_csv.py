@@ -207,6 +207,7 @@ def analyze_csv(
         "duplicate_rows": int(df.duplicated().sum()),
         "cardinalities": cardinalities(df),
         "candidate_keys": find_candidate_keys(df),
+        "low_cardinality_threshold": low_cardinality,
         "low_cardinality": low_cardinality_values(df, threshold=low_cardinality),
         "preview": preview,
     }
@@ -270,7 +271,7 @@ def format_csv_audit(audit: dict[str, Any]) -> str:
         [
             "",
             "=" * 80,
-            f"COLONNES À FAIBLE CARDINALITÉ (<= {max((item['unique'] for item in audit['low_cardinality']), default=0)} valeurs)",
+            f"COLONNES À FAIBLE CARDINALITÉ (<= {audit['low_cardinality_threshold']} valeurs)",
             "=" * 80,
         ]
     )
