@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-31
+
+### Added
+
+- Non-interactive dataset selection with `--first` after producer/title filtering across dataset-resolving commands, downloads, and workflows.
+- Resource filtering for `datagouv resources` with `--format` and `--resource-title`.
+- URL-only resource handoff with `datagouv resources --urls` for Unix pipelines and downstream tools.
+- Compact resource manifests with `datagouv resources --manifest`, including dataset identity and selected resource metadata.
+- Focused tests covering non-interactive resolution, resource filtering, URL handoff, manifests, and parser behavior.
+
+### Changed
+
+- Project documentation now reflects the intended scope: discover, evaluate, select, and download data.gouv.fr resources, then hand them off to tools such as R, Python, DuckDB, or other Unix tooling.
+- Package description and keywords now emphasize data discovery and access rather than downstream data analysis.
+- `--json`, `--urls`, and `--manifest` are mutually exclusive resource output modes.
+
+### Fixed
+
+- Human-readable `catalog-stats` rankings now preserve and display remaining-value counts from structured ranking results.
+
 ## [0.4.0] - 2026-08-31
 
 ### Added
@@ -97,7 +117,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Ruff, mypy, Bandit, pytest, and coverage checks.
 - GPL-3.0-only license.
 
-[Unreleased]: https://github.com/fmaillar/datagouv-toolkit/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/fmaillar/datagouv-toolkit/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/fmaillar/datagouv-toolkit/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/fmaillar/datagouv-toolkit/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/fmaillar/datagouv-toolkit/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/fmaillar/datagouv-toolkit/compare/v0.2.0...v0.2.1
