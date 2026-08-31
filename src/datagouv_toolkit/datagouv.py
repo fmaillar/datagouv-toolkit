@@ -77,7 +77,14 @@ def get_dataset(dataset_id):
     return get_json(url)
 
 
-def resolve_dataset(value, page_size=20, producer=None, title=None):
+def resolve_dataset(
+    value,
+    page_size=20,
+    producer=None,
+    title=None,
+    *,
+    first=False,
+):
     """Résout un jeu de données depuis son ID ou une recherche textuelle.
 
     Si ``value`` ressemble à un identifiant data.gouv.fr, le jeu est récupéré
@@ -137,7 +144,7 @@ def resolve_dataset(value, page_size=20, producer=None, title=None):
     if not datasets:
         raise ValueError(f"Aucun jeu de données trouvé pour : {value}")
 
-    if len(datasets) == 1:
+    if len(datasets) == 1 or first:
         return get_dataset(datasets[0]["id"])
 
     print(f"{len(datasets)} résultat(s) trouvé(s)")
@@ -267,7 +274,12 @@ def command_search(args):
 
 
 def command_dataset(args):
-    dataset = resolve_dataset(args.dataset, producer=args.producer, title=args.title)
+    dataset = resolve_dataset(
+        args.dataset,
+        producer=args.producer,
+        title=args.title,
+        first=getattr(args, "first", False),
+    )
 
     if getattr(args, "json", False):
         print(json.dumps(dataset, ensure_ascii=False, indent=2, sort_keys=True))
@@ -285,7 +297,12 @@ def command_dataset(args):
 
 
 def command_resources(args):
-    dataset = resolve_dataset(args.dataset, producer=args.producer, title=args.title)
+    dataset = resolve_dataset(
+        args.dataset,
+        producer=args.producer,
+        title=args.title,
+        first=getattr(args, "first", False),
+    )
 
     if getattr(args, "json", False):
         print(
@@ -408,7 +425,12 @@ def dataset_stats(dataset):
 
 
 def command_stats(args):
-    dataset = resolve_dataset(args.dataset, producer=args.producer, title=args.title)
+    dataset = resolve_dataset(
+        args.dataset,
+        producer=args.producer,
+        title=args.title,
+        first=getattr(args, "first", False),
+    )
     stats = dataset_stats(dataset)
 
     if getattr(args, "json", False):
@@ -460,6 +482,7 @@ def command_inspect(args):
         args.dataset,
         producer=args.producer,
         title=args.title,
+        first=getattr(args, "first", False),
     )
 
     print(
@@ -549,6 +572,7 @@ def command_metadata(args):
         args.dataset,
         producer=args.producer,
         title=args.title,
+        first=getattr(args, "first", False),
     )
 
     organization = dataset.get("organization")
