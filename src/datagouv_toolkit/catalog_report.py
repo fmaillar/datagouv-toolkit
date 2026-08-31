@@ -146,6 +146,10 @@ def print_catalog_report(result: dict[str, Any], args: argparse.Namespace) -> No
         resource_stats,
         result["top"],
         args,
+        remaining_values={
+            name: ranking["remaining_values"]
+            for name, ranking in result["rankings"].items()
+        },
     )
 
 
