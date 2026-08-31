@@ -1,38 +1,18 @@
 #!/usr/bin/env python3
-"""Client CLI minimal pour explorer le catalogue data.gouv.fr.
+"""Fonctions métier pour explorer le catalogue data.gouv.fr.
 
-Le script interroge l'API catalogue publique de data.gouv.fr et permet de :
+Ce module regroupe l'accès à l'API catalogue, la résolution des jeux de
+données, l'affichage des métadonnées et le calcul de statistiques sur leurs
+ressources.
 
-- rechercher des jeux de données ;
-- résoudre un jeu par ID ou recherche textuelle ;
-- filtrer les résultats par producteur et par titre ;
-- afficher un résumé, les ressources et les métadonnées principales ;
-- calculer quelques statistiques sur les ressources ;
-- inspecter la réponse JSON brute de l'API.
+La construction et le dispatch de la ligne de commande ``datagouv`` sont
+assurés par :mod:`cli`.
 
-Exemples
---------
-Rechercher des jeux de données :
-
-    python datagouv.py search "accidents corporels"
-
-Afficher les métadonnées du jeu BAAC officiel :
-
-    python datagouv.py metadata "accidents corporels" \
-        --producer "Ministère de l'intérieur"
-
-Inspecter le JSON brut :
-
-    python datagouv.py inspect "accidents corporels" \
-        --producer "Ministère de l'intérieur" | jq
-
-Le script fonctionne en lecture seule et ne modifie aucune donnée distante.
+Les opérations sur l'API sont effectuées en lecture seule.
 """
 
-import argparse
 import json
 import re
-import sys
 from collections import Counter
 from urllib.parse import urlparse
 
@@ -180,7 +160,9 @@ def resolve_dataset(value, page_size=20, producer=None, title=None):
     while True:
         try:
             choice = int(input("Choix : "))
-        except (ValueError, EOFError):
+        except EOFError:
+            raise KeyboardInterrupt
+        except ValueError:
             print("Entre un numéro valide.")
             continue
 
@@ -595,165 +577,3 @@ def command_metadata(args):
         dataset.get("metrics"),
         metrics_fields,
     )
-
-
-def build_parser():
-    """Construit le parseur de ligne de commande et ses sous-commandes."""
-    parser = argparse.ArgumentParser(
-        description="Client minimal pour l'API catalogue data.gouv.fr"
-    )
-
-    subparsers = parser.add_subparsers(
-        dest="command",
-        required=True,
-    )
-
-    search_parser = subparsers.add_parser(
-        "search",
-        help="Rechercher des jeux de données",
-    )
-    search_parser.add_argument(
-        "query",
-        help="Texte recherché",
-    )
-    search_parser.add_argument(
-        "-n",
-        "--limit",
-        type=int,
-        default=10,
-        help="Nombre de résultats à afficher (défaut: 10)",
-    )
-    search_parser.set_defaults(func=command_search)
-
-    dataset_parser = subparsers.add_parser(
-        "dataset",
-        help="Afficher les métadonnées d'un jeu de données",
-    )
-    dataset_parser.add_argument(
-        "dataset",
-        help="Identifiant ou texte de recherche du jeu de données",
-    )
-    dataset_parser.add_argument(
-        "--producer",
-        help="Filtrer par nom de producteur",
-    )
-    dataset_parser.add_argument(
-        "--title",
-        help="Filtrer par texte présent dans le titre",
-    )
-    dataset_parser.set_defaults(func=command_dataset)
-
-    resources_parser = subparsers.add_parser(
-        "resources",
-        help="Lister les ressources d'un jeu de données",
-    )
-    resources_parser.add_argument(
-        "dataset",
-        help="Identifiant ou texte de recherche du jeu de données",
-    )
-    resources_parser.add_argument(
-        "--producer",
-        help="Filtrer par nom de producteur",
-    )
-    resources_parser.add_argument(
-        "--title",
-        help="Filtrer par texte présent dans le titre",
-    )
-    resources_parser.set_defaults(func=command_resources)
-
-    organization_parser = subparsers.add_parser(
-        "organization",
-        help="Afficher une organisation",
-    )
-    organization_parser.add_argument(
-        "organization_id",
-        help="Identifiant de l'organisation",
-    )
-    organization_parser.set_defaults(func=command_organization)
-
-    stats_parser = subparsers.add_parser(
-        "stats",
-        help="Afficher des statistiques sur les ressources d'un jeu de données",
-    )
-    stats_parser.add_argument(
-        "dataset",
-        help="Identifiant ou texte de recherche du jeu de données",
-    )
-    stats_parser.add_argument(
-        "--producer",
-        help="Filtrer par nom de producteur",
-    )
-    stats_parser.add_argument(
-        "--title",
-        help="Filtrer par texte présent dans le titre",
-    )
-    stats_parser.set_defaults(func=command_stats)
-
-    inspect_parser = subparsers.add_parser(
-        "inspect",
-        help="Afficher toutes les métadonnées JSON d'un jeu de données",
-    )
-    inspect_parser.add_argument(
-        "dataset",
-        help="Identifiant ou texte de recherche du jeu de données",
-    )
-    inspect_parser.add_argument(
-        "--producer",
-        help="Filtrer par nom de producteur",
-    )
-    inspect_parser.add_argument(
-        "--title",
-        help="Filtrer par texte présent dans le titre",
-    )
-    inspect_parser.set_defaults(func=command_inspect)
-
-    metadata_parser = subparsers.add_parser(
-        "metadata",
-        help="Afficher les métadonnées principales d'un jeu de données",
-    )
-    metadata_parser.add_argument(
-        "dataset",
-        help="Identifiant ou texte de recherche du jeu de données",
-    )
-    metadata_parser.add_argument(
-        "--producer",
-        help="Filtrer par nom de producteur",
-    )
-    metadata_parser.add_argument(
-        "--title",
-        help="Filtrer par texte présent dans le titre",
-    )
-    metadata_parser.set_defaults(func=command_metadata)
-
-    return parser
-
-
-def main():
-    """Point d'entrée principal de la CLI."""
-    parser = build_parser()
-    args = parser.parse_args()
-
-    try:
-        args.func(args)
-
-    except requests.HTTPError as exc:
-        print(f"Erreur HTTP : {exc}", file=sys.stderr)
-        return 1
-
-    except requests.RequestException as exc:
-        print(f"Erreur réseau : {exc}", file=sys.stderr)
-        return 1
-
-    except KeyboardInterrupt:
-        print("\nInterrompu.", file=sys.stderr)
-        return 130
-
-    except ValueError as exc:
-        print(f"Erreur : {exc}", file=sys.stderr)
-        return 1
-
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

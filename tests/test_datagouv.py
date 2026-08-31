@@ -2,7 +2,6 @@ import json
 from argparse import Namespace
 
 import pytest
-import requests
 
 import datagouv as module
 
@@ -660,137 +659,22 @@ def test_command_metadata(monkeypatch, capsys):
     assert "Métriques" in output
     assert "12" in output
 
-
-def test_build_parser_search():
-    parser = module.build_parser()
-
-    args = parser.parse_args(
-        [
-            "search",
-            "transport",
-            "--limit",
-            "7",
-        ]
-    )
-
-    assert args.command == "search"
-    assert args.query == "transport"
-    assert args.limit == 7
-    assert args.func is module.command_search
-
-
-@pytest.mark.parametrize(
-    ("command", "func"),
-    [
-        ("dataset", module.command_dataset),
-        ("resources", module.command_resources),
-        ("stats", module.command_stats),
-        ("inspect", module.command_inspect),
-        ("metadata", module.command_metadata),
-    ],
-)
-def test_build_parser_dataset_commands(command, func):
-    parser = module.build_parser()
-
-    args = parser.parse_args(
-        [
-            command,
-            "example",
-            "--producer",
-            "Example Org",
-            "--title",
-            "Example",
-        ]
-    )
-
-    assert args.command == command
-    assert args.dataset == "example"
-    assert args.producer == "Example Org"
-    assert args.title == "Example"
-    assert args.func is func
-
-
-def test_build_parser_organization():
-    parser = module.build_parser()
-
-    args = parser.parse_args(
-        [
-            "organization",
-            "abc",
-        ]
-    )
-
-    assert args.organization_id == "abc"
-    assert args.func is module.command_organization
-
-
-def test_main_success(monkeypatch):
-    called = []
-
+def test_resolve_dataset_eof_interrupts(monkeypatch):
     monkeypatch.setattr(
         module,
-        "build_parser",
-        lambda: type(
-            "Parser",
-            (),
-            {
-                "parse_args": lambda self: Namespace(
-                    func=lambda args: called.append(True)
-                )
-            },
-        )(),
+        "search_datasets",
+        lambda *args, **kwargs: {
+            "data": [
+                {"id": "a", "title": "Dataset A"},
+                {"id": "b", "title": "Dataset B"},
+            ]
+        },
     )
-
-    assert module.main() == 0
-    assert called == [True]
-
-
-@pytest.mark.parametrize(
-    ("exception", "message", "code"),
-    [
-        (
-            requests.HTTPError("HTTP failure"),
-            "Erreur HTTP",
-            1,
-        ),
-        (
-            requests.RequestException("Network failure"),
-            "Erreur réseau",
-            1,
-        ),
-        (
-            ValueError("Bad value"),
-            "Erreur : Bad value",
-            1,
-        ),
-        (
-            KeyboardInterrupt(),
-            "Interrompu.",
-            130,
-        ),
-    ],
-)
-def test_main_handles_errors(
-    monkeypatch,
-    capsys,
-    exception,
-    message,
-    code,
-):
-    def fail(args):
-        raise exception
 
     monkeypatch.setattr(
-        module,
-        "build_parser",
-        lambda: type(
-            "Parser",
-            (),
-            {"parse_args": lambda self: Namespace(func=fail)},
-        )(),
+        "builtins.input",
+        lambda prompt: (_ for _ in ()).throw(EOFError),
     )
 
-    assert module.main() == code
-
-    error = capsys.readouterr().err
-    assert message in error
+    with pytest.raises(KeyboardInterrupt):
+        module.resolve_dataset("example")
