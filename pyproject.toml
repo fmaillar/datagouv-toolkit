@@ -66,3 +66,14 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.ruff.lint.isort]
+known-first-party = [
+  "catalog_stats",
+  "cli",
+  "datagouv",
+  "dataset_workflow",
+  "download_resources",
+  "inspect_csv",
+  "normalize",
+]
