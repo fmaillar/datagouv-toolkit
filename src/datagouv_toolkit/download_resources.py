@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Callable
 from pathlib import Path
 
 import requests
@@ -112,10 +113,13 @@ def download_resources(
     output_dir: Path,
     *,
     overwrite: bool = False,
+    progress: bool = True,
+    download_func: Callable[..., bool] | None = None,
 ) -> list[dict]:
     """Télécharge une liste de ressources et retourne le résultat de chacune."""
     total = len(resources)
     results = []
+    downloader = download_resource if download_func is None else download_func
 
     for index, resource in enumerate(
         resources,
@@ -125,7 +129,8 @@ def download_resources(
         destination = output_dir / filename
 
         if destination.exists() and not overwrite:
-            print(f"[{index}/{total}] SKIP {filename}")
+            if progress:
+                print(f"[{index}/{total}] SKIP {filename}")
             results.append(
                 {
                     "resource": resource,
@@ -135,9 +140,10 @@ def download_resources(
             )
             continue
 
-        print(f"[{index}/{total}] GET  {filename}")
+        if progress:
+            print(f"[{index}/{total}] GET  {filename}")
 
-        downloaded = download_resource(
+        downloaded = downloader(
             resource,
             destination,
             overwrite=overwrite,

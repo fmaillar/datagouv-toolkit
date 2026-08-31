@@ -5,11 +5,7 @@ from contextlib import redirect_stdout
 from pathlib import Path
 
 from .datagouv import resolve_dataset
-from .download_resources import (
-    download_resource,
-    safe_filename,
-    select_resources,
-)
+from .download_resources import download_resource, download_resources, select_resources
 from .inspect_csv import inspect_csv
 
 
@@ -49,21 +45,23 @@ def run_workflow(
         exist_ok=True,
     )
 
-    for index, resource in enumerate(
+    results = download_resources(
         resources,
+        output_dir,
+        overwrite=overwrite,
+        progress=False,
+        download_func=download_resource,
+    )
+
+    for index, result in enumerate(
+        results,
         start=1,
     ):
-        filename = safe_filename(resource)
-        destination = output_dir / filename
+        destination = result["path"]
+        downloaded = result["downloaded"]
 
         print()
-        print(f"[{index}/{len(resources)}] {filename}")
-
-        downloaded = download_resource(
-            resource,
-            destination,
-            overwrite=overwrite,
-        )
+        print(f"[{index}/{len(results)}] {destination.name}")
 
         if downloaded:
             print("Téléchargement : OK")
