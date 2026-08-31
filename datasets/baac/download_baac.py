@@ -5,8 +5,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from datagouv import resolve_dataset
-from download_resources import download_resource
+from datagouv_toolkit.datagouv import resolve_dataset
+from datagouv_toolkit.download_resources import download_resource
 
 DATASET_QUERY = "accidents corporels"
 PRODUCER = "Ministère de l'intérieur"

@@ -4,13 +4,13 @@ import argparse
 from contextlib import redirect_stdout
 from pathlib import Path
 
-from datagouv import resolve_dataset
-from download_resources import (
+from .datagouv import resolve_dataset
+from .download_resources import (
     download_resource,
     safe_filename,
     select_resources,
 )
-from inspect_csv import inspect_csv
+from .inspect_csv import inspect_csv
 
 
 def run_workflow(

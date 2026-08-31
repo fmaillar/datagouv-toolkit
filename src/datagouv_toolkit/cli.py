@@ -6,11 +6,10 @@ from pathlib import Path
 
 import requests
 
-import catalog_stats
-import datagouv
-from dataset_workflow import run_workflow
-from download_resources import download_resources, select_resources
-from inspect_csv import DEFAULT_LOW_CARDINALITY, inspect_csv
+from . import catalog_stats, datagouv
+from .dataset_workflow import run_workflow
+from .download_resources import download_resources, select_resources
+from .inspect_csv import DEFAULT_LOW_CARDINALITY, inspect_csv
 
 
 def add_dataset_selector(parser: argparse.ArgumentParser) -> None:

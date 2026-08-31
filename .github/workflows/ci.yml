@@ -34,12 +34,15 @@ jobs:
         run: mypy . --ignore-missing-imports
 
       - name: Bandit
-        run: bandit -q *.py
+        run: bandit -q -r src/datagouv_toolkit
 
       - name: Package build
         run: |
           python -m build
           python -m twine check dist/*
+
+      - name: Installed CLI smoke test
+        run: datagouv --help
 
   tests:
     name: tests (Python ${{ matrix.python-version }})
@@ -66,13 +69,7 @@ jobs:
       - name: Tests and coverage
         run: |
           pytest \
-            --cov=cli \
-            --cov=datagouv \
-            --cov=catalog_stats \
-            --cov=normalize \
-            --cov=inspect_csv \
-            --cov=download_resources \
-            --cov=dataset_workflow \
+            --cov=datagouv_toolkit \
             --cov-report=term-missing \
             --cov-fail-under=95 \
             -q
