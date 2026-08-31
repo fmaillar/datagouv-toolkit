@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -56,39 +58,51 @@ def load_csv(
     )
 
 
-def print_missing_values(df: pd.DataFrame) -> None:
-    """Affiche les valeurs manquantes par colonne."""
+def missing_values(df: pd.DataFrame) -> list[dict[str, Any]]:
+    """Retourne les valeurs manquantes par colonne."""
     missing = pd.DataFrame(
         {
-            "missing": df.isna().sum(),
-            "percent": df.isna().mean() * 100,
+            "column": [str(column) for column in df.columns],
+            "missing": df.isna().sum().astype(int).to_list(),
+            "percent": (df.isna().mean() * 100).astype(float).to_list(),
         }
     ).sort_values(
         ["missing", "percent"],
         ascending=False,
     )
 
-    print(missing.to_string())
+    return missing.to_dict(orient="records")
+
+
+def cardinalities(df: pd.DataFrame) -> list[dict[str, Any]]:
+    """Retourne le nombre de valeurs distinctes par colonne."""
+    rows = []
+
+    for column in df.columns:
+        unique = int(df[column].nunique(dropna=False))
+        rows.append(
+            {
+                "column": str(column),
+                "unique": unique,
+                "ratio": unique / len(df) if len(df) else 0.0,
+            }
+        )
+
+    return sorted(
+        rows,
+        key=lambda row: (-row["unique"], row["column"]),
+    )
+
+
+def print_missing_values(df: pd.DataFrame) -> None:
+    """Affiche les valeurs manquantes par colonne."""
+    result = pd.DataFrame(missing_values(df)).set_index("column")
+    print(result.to_string())
 
 
 def print_cardinalities(df: pd.DataFrame) -> None:
     """Affiche le nombre de valeurs distinctes par colonne."""
-    rows = []
-
-    for column in df.columns:
-        rows.append(
-            {
-                "column": column,
-                "unique": df[column].nunique(dropna=False),
-                "ratio": df[column].nunique(dropna=False) / len(df) if len(df) else 0,
-            }
-        )
-
-    result = pd.DataFrame(rows).sort_values(
-        ["unique", "column"],
-        ascending=[False, True],
-    )
-
+    result = pd.DataFrame(cardinalities(df))
     print(result.to_string(index=False))
 
 
@@ -109,9 +123,38 @@ def find_candidate_keys(df: pd.DataFrame) -> list[str]:
             continue
 
         if series.is_unique:
-            candidates.append(column)
+            candidates.append(str(column))
 
     return candidates
+
+
+def low_cardinality_values(
+    df: pd.DataFrame,
+    *,
+    threshold: int,
+) -> list[dict[str, Any]]:
+    """Retourne les distributions des colonnes à faible cardinalité."""
+    results = []
+
+    for column in df.columns:
+        count = int(df[column].nunique(dropna=False))
+
+        if count > threshold:
+            continue
+
+        values = df[column].value_counts(dropna=False).rename_axis("value").reset_index(
+            name="count"
+        )
+        records = json.loads(values.to_json(orient="records", force_ascii=False))
+        results.append(
+            {
+                "column": str(column),
+                "unique": count,
+                "values": records,
+            }
+        )
+
+    return results
 
 
 def print_low_cardinality(
@@ -120,21 +163,141 @@ def print_low_cardinality(
     threshold: int,
 ) -> None:
     """Affiche les distributions des colonnes à faible cardinalité."""
-    for column in df.columns:
-        count = df[column].nunique(dropna=False)
-
-        if count > threshold:
-            continue
-
+    for item in low_cardinality_values(df, threshold=threshold):
         print()
-        print(f"{column} ({count} valeurs)")
+        print(f"{item['column']} ({item['unique']} valeurs)")
         print("-" * 80)
+        values = pd.DataFrame(item["values"]).set_index("value")["count"]
+        print(values.to_string())
 
-        values = df[column].value_counts(
-            dropna=False,
+
+def analyze_csv(
+    path: Path,
+    *,
+    encoding: str | None = None,
+    separator: str | None = None,
+    nrows: int | None = None,
+    low_cardinality: int = DEFAULT_LOW_CARDINALITY,
+) -> dict[str, Any]:
+    """Analyse un CSV et retourne un résultat structuré sans l'afficher."""
+    selected_encoding = encoding or detect_encoding(path)
+    selected_separator = separator or detect_separator(path, selected_encoding)
+
+    df = load_csv(
+        path,
+        encoding=selected_encoding,
+        separator=selected_separator,
+        nrows=nrows,
+    )
+
+    preview = json.loads(df.head().to_json(orient="records", force_ascii=False))
+
+    return {
+        "file": {
+            "path": str(path.resolve()),
+            "size_bytes": path.stat().st_size,
+            "encoding": selected_encoding,
+            "separator": selected_separator,
+            "rows": len(df),
+            "columns": len(df.columns),
+            "limit": nrows,
+        },
+        "dtypes": {str(column): str(dtype) for column, dtype in df.dtypes.items()},
+        "missing_values": missing_values(df),
+        "duplicate_rows": int(df.duplicated().sum()),
+        "cardinalities": cardinalities(df),
+        "candidate_keys": find_candidate_keys(df),
+        "low_cardinality": low_cardinality_values(df, threshold=low_cardinality),
+        "preview": preview,
+    }
+
+
+def format_csv_audit(audit: dict[str, Any]) -> str:
+    """Formate un résultat d'audit structuré en rapport texte."""
+    file_info = audit["file"]
+    lines = [
+        "=" * 80,
+        "FICHIER",
+        "=" * 80,
+        f"Chemin       : {file_info['path']}",
+        f"Taille       : {file_info['size_bytes']:,} octets",
+        f"Encodage     : {file_info['encoding']}",
+        f"Séparateur   : {file_info['separator']!r}",
+        f"Lignes       : {file_info['rows']}",
+        f"Colonnes     : {file_info['columns']}",
+    ]
+
+    if file_info["limit"] is not None:
+        lines.append(f"Limite       : {file_info['limit']} lignes")
+
+    lines.extend(
+        [
+            "",
+            "=" * 80,
+            "COLONNES ET TYPES",
+            "=" * 80,
+            pd.Series(audit["dtypes"]).to_string(),
+            "",
+            "=" * 80,
+            "VALEURS MANQUANTES",
+            "=" * 80,
+            pd.DataFrame(audit["missing_values"])
+            .set_index("column")
+            .to_string(),
+            "",
+            "=" * 80,
+            "DOUBLONS",
+            "=" * 80,
+            f"Lignes dupliquées : {audit['duplicate_rows']}",
+            "",
+            "=" * 80,
+            "CARDINALITÉS",
+            "=" * 80,
+            pd.DataFrame(audit["cardinalities"]).to_string(index=False),
+            "",
+            "=" * 80,
+            "CLÉS SIMPLES CANDIDATES",
+            "=" * 80,
+        ]
+    )
+
+    if audit["candidate_keys"]:
+        lines.extend(audit["candidate_keys"])
+    else:
+        lines.append("Aucune")
+
+    lines.extend(
+        [
+            "",
+            "=" * 80,
+            f"COLONNES À FAIBLE CARDINALITÉ (<= {max((item['unique'] for item in audit['low_cardinality']), default=0)} valeurs)",
+            "=" * 80,
+        ]
+    )
+
+    for item in audit["low_cardinality"]:
+        lines.extend(
+            [
+                "",
+                f"{item['column']} ({item['unique']} valeurs)",
+                "-" * 80,
+                pd.DataFrame(item["values"])
+                .set_index("value")["count"]
+                .to_string(),
+            ]
         )
 
-        print(values.to_string())
+    lines.extend(
+        [
+            "",
+            "=" * 80,
+            "APERÇU",
+            "=" * 80,
+            pd.DataFrame(audit["preview"]).to_string(index=False),
+        ]
+    )
+
+    return "\n".join(lines)
 
 
 def inspect_csv(
@@ -144,86 +307,17 @@ def inspect_csv(
     separator: str | None = None,
     nrows: int | None = None,
     low_cardinality: int = DEFAULT_LOW_CARDINALITY,
-) -> None:
+) -> dict[str, Any]:
     """Produit un audit générique d'un fichier CSV."""
-    selected_encoding = encoding or detect_encoding(path)
-    selected_separator = separator or detect_separator(
+    audit = analyze_csv(
         path,
-        selected_encoding,
-    )
-
-    df = load_csv(
-        path,
-        encoding=selected_encoding,
-        separator=selected_separator,
+        encoding=encoding,
+        separator=separator,
         nrows=nrows,
+        low_cardinality=low_cardinality,
     )
-
-    print("=" * 80)
-    print("FICHIER")
-    print("=" * 80)
-    print(f"Chemin       : {path.resolve()}")
-    print(f"Taille       : {path.stat().st_size:,} octets")
-    print(f"Encodage     : {selected_encoding}")
-    print(f"Séparateur   : {selected_separator!r}")
-    print(f"Lignes       : {len(df)}")
-    print(f"Colonnes     : {len(df.columns)}")
-
-    if nrows is not None:
-        print(f"Limite       : {nrows} lignes")
-
-    print()
-    print("=" * 80)
-    print("COLONNES ET TYPES")
-    print("=" * 80)
-    print(df.dtypes.to_string())
-
-    print()
-    print("=" * 80)
-    print("VALEURS MANQUANTES")
-    print("=" * 80)
-    print_missing_values(df)
-
-    print()
-    print("=" * 80)
-    print("DOUBLONS")
-    print("=" * 80)
-    print(f"Lignes dupliquées : {df.duplicated().sum()}")
-
-    print()
-    print("=" * 80)
-    print("CARDINALITÉS")
-    print("=" * 80)
-    print_cardinalities(df)
-
-    print()
-    print("=" * 80)
-    print("CLÉS SIMPLES CANDIDATES")
-    print("=" * 80)
-
-    candidates = find_candidate_keys(df)
-
-    if candidates:
-        for column in candidates:
-            print(column)
-    else:
-        print("Aucune")
-
-    print()
-    print("=" * 80)
-    print(f"COLONNES À FAIBLE CARDINALITÉ (<= {low_cardinality} valeurs)")
-    print("=" * 80)
-
-    print_low_cardinality(
-        df,
-        threshold=low_cardinality,
-    )
-
-    print()
-    print("=" * 80)
-    print("APERÇU")
-    print("=" * 80)
-    print(df.head().to_string(index=False))
+    print(format_csv_audit(audit))
+    return audit
 
 
 def parse_args() -> argparse.Namespace:
@@ -258,6 +352,11 @@ def parse_args() -> argparse.Namespace:
             "la distribution d'une colonne."
         ),
     )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Afficher le résultat au format JSON.",
+    )
 
     return parser.parse_args()
 
@@ -268,13 +367,23 @@ def main() -> None:
     if not args.file.is_file():
         raise SystemExit(f"Fichier introuvable : {args.file}")
 
-    inspect_csv(
-        args.file,
-        encoding=args.encoding,
-        separator=args.sep,
-        nrows=args.nrows,
-        low_cardinality=args.low_cardinality,
-    )
+    if args.json:
+        audit = analyze_csv(
+            args.file,
+            encoding=args.encoding,
+            separator=args.sep,
+            nrows=args.nrows,
+            low_cardinality=args.low_cardinality,
+        )
+        print(json.dumps(audit, ensure_ascii=False, indent=2, sort_keys=True))
+    else:
+        inspect_csv(
+            args.file,
+            encoding=args.encoding,
+            separator=args.sep,
+            nrows=args.nrows,
+            low_cardinality=args.low_cardinality,
+        )
 
 
 if __name__ == "__main__":
