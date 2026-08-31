@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-import download_resources as module
-from download_resources import (
+from datagouv_toolkit import download_resources as module
+from datagouv_toolkit.download_resources import (
     download_resource,
     download_resources,
     safe_filename,
@@ -159,7 +159,7 @@ def test_download_resource(monkeypatch, tmp_path: Path) -> None:
         return response
 
     monkeypatch.setattr(
-        "download_resources.requests.get",
+        "datagouv_toolkit.download_resources.requests.get",
         fake_get,
     )
 
@@ -224,7 +224,7 @@ def test_download_resource_removes_partial_file_on_error(
         return BrokenResponse([])
 
     monkeypatch.setattr(
-        "download_resources.requests.get",
+        "datagouv_toolkit.download_resources.requests.get",
         fake_get,
     )
 

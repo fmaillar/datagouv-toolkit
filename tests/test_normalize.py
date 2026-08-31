@@ -2,7 +2,11 @@
 
 import pytest
 
-from normalize import normalize_format, normalize_frequency, normalize_license
+from datagouv_toolkit.normalize import (
+    normalize_format,
+    normalize_frequency,
+    normalize_license,
+)
 
 
 @pytest.mark.parametrize(

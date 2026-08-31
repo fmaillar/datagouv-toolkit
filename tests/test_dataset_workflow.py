@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-import dataset_workflow as module
-from dataset_workflow import run_workflow
+from datagouv_toolkit import dataset_workflow as module
+from datagouv_toolkit.dataset_workflow import run_workflow
 
 
 def test_run_workflow_downloads_and_audits_csv(
@@ -23,12 +23,12 @@ def test_run_workflow_downloads_and_audits_csv(
     }
 
     monkeypatch.setattr(
-        "dataset_workflow.resolve_dataset",
+        "datagouv_toolkit.dataset_workflow.resolve_dataset",
         lambda *args, **kwargs: dataset,
     )
 
     monkeypatch.setattr(
-        "dataset_workflow.select_resources",
+        "datagouv_toolkit.dataset_workflow.select_resources",
         lambda *args, **kwargs: dataset["resources"],
     )
 
@@ -44,11 +44,11 @@ def test_run_workflow_downloads_and_audits_csv(
         audited.append(path)
 
     monkeypatch.setattr(
-        "dataset_workflow.download_resource",
+        "datagouv_toolkit.dataset_workflow.download_resource",
         fake_download,
     )
     monkeypatch.setattr(
-        "dataset_workflow.inspect_csv",
+        "datagouv_toolkit.dataset_workflow.inspect_csv",
         fake_inspect,
     )
 
@@ -78,22 +78,22 @@ def test_run_workflow_does_not_audit_non_csv(
     }
 
     monkeypatch.setattr(
-        "dataset_workflow.resolve_dataset",
+        "datagouv_toolkit.dataset_workflow.resolve_dataset",
         lambda *args, **kwargs: dataset,
     )
     monkeypatch.setattr(
-        "dataset_workflow.select_resources",
+        "datagouv_toolkit.dataset_workflow.select_resources",
         lambda *args, **kwargs: dataset["resources"],
     )
     monkeypatch.setattr(
-        "dataset_workflow.download_resource",
+        "datagouv_toolkit.dataset_workflow.download_resource",
         lambda resource, destination, *, overwrite=False: True,
     )
 
     audited = []
 
     monkeypatch.setattr(
-        "dataset_workflow.inspect_csv",
+        "datagouv_toolkit.dataset_workflow.inspect_csv",
         lambda path: audited.append(path),
     )
 
@@ -121,22 +121,22 @@ def test_run_workflow_can_disable_audit(
     }
 
     monkeypatch.setattr(
-        "dataset_workflow.resolve_dataset",
+        "datagouv_toolkit.dataset_workflow.resolve_dataset",
         lambda *args, **kwargs: dataset,
     )
     monkeypatch.setattr(
-        "dataset_workflow.select_resources",
+        "datagouv_toolkit.dataset_workflow.select_resources",
         lambda *args, **kwargs: dataset["resources"],
     )
     monkeypatch.setattr(
-        "dataset_workflow.download_resource",
+        "datagouv_toolkit.dataset_workflow.download_resource",
         lambda resource, destination, *, overwrite=False: True,
     )
 
     audited = []
 
     monkeypatch.setattr(
-        "dataset_workflow.inspect_csv",
+        "datagouv_toolkit.dataset_workflow.inspect_csv",
         lambda path: audited.append(path),
     )
 
@@ -168,22 +168,22 @@ def test_run_workflow_audits_existing_csv_after_skip(
     destination.write_text("id;value\n1;a\n", encoding="utf-8")
 
     monkeypatch.setattr(
-        "dataset_workflow.resolve_dataset",
+        "datagouv_toolkit.dataset_workflow.resolve_dataset",
         lambda *args, **kwargs: dataset,
     )
     monkeypatch.setattr(
-        "dataset_workflow.select_resources",
+        "datagouv_toolkit.dataset_workflow.select_resources",
         lambda *args, **kwargs: dataset["resources"],
     )
     monkeypatch.setattr(
-        "dataset_workflow.download_resource",
+        "datagouv_toolkit.dataset_workflow.download_resource",
         lambda resource, destination, *, overwrite=False: False,
     )
 
     audited = []
 
     monkeypatch.setattr(
-        "dataset_workflow.inspect_csv",
+        "datagouv_toolkit.dataset_workflow.inspect_csv",
         lambda path: audited.append(path),
     )
 
@@ -244,19 +244,19 @@ def test_run_workflow_forwards_filters(
         ]
 
     monkeypatch.setattr(
-        "dataset_workflow.resolve_dataset",
+        "datagouv_toolkit.dataset_workflow.resolve_dataset",
         fake_resolve,
     )
     monkeypatch.setattr(
-        "dataset_workflow.select_resources",
+        "datagouv_toolkit.dataset_workflow.select_resources",
         fake_select,
     )
     monkeypatch.setattr(
-        "dataset_workflow.download_resource",
+        "datagouv_toolkit.dataset_workflow.download_resource",
         lambda resource, destination, *, overwrite=False: True,
     )
     monkeypatch.setattr(
-        "dataset_workflow.inspect_csv",
+        "datagouv_toolkit.dataset_workflow.inspect_csv",
         lambda path: None,
     )
 
@@ -302,11 +302,11 @@ def test_run_workflow_forwards_overwrite(
     }
 
     monkeypatch.setattr(
-        "dataset_workflow.resolve_dataset",
+        "datagouv_toolkit.dataset_workflow.resolve_dataset",
         lambda *args, **kwargs: dataset,
     )
     monkeypatch.setattr(
-        "dataset_workflow.select_resources",
+        "datagouv_toolkit.dataset_workflow.select_resources",
         lambda *args, **kwargs: dataset["resources"],
     )
 
@@ -317,11 +317,11 @@ def test_run_workflow_forwards_overwrite(
         return True
 
     monkeypatch.setattr(
-        "dataset_workflow.download_resource",
+        "datagouv_toolkit.dataset_workflow.download_resource",
         fake_download,
     )
     monkeypatch.setattr(
-        "dataset_workflow.inspect_csv",
+        "datagouv_toolkit.dataset_workflow.inspect_csv",
         lambda path: None,
     )
 
@@ -344,11 +344,11 @@ def test_run_workflow_rejects_empty_selection(
     }
 
     monkeypatch.setattr(
-        "dataset_workflow.resolve_dataset",
+        "datagouv_toolkit.dataset_workflow.resolve_dataset",
         lambda *args, **kwargs: dataset,
     )
     monkeypatch.setattr(
-        "dataset_workflow.select_resources",
+        "datagouv_toolkit.dataset_workflow.select_resources",
         lambda *args, **kwargs: [],
     )
 
@@ -381,11 +381,11 @@ def test_run_workflow_writes_audit_file(
     audit_dir = tmp_path / "audits"
 
     monkeypatch.setattr(
-        "dataset_workflow.resolve_dataset",
+        "datagouv_toolkit.dataset_workflow.resolve_dataset",
         lambda *args, **kwargs: dataset,
     )
     monkeypatch.setattr(
-        "dataset_workflow.select_resources",
+        "datagouv_toolkit.dataset_workflow.select_resources",
         lambda *args, **kwargs: dataset["resources"],
     )
 
@@ -394,7 +394,7 @@ def test_run_workflow_writes_audit_file(
         return True
 
     monkeypatch.setattr(
-        "dataset_workflow.download_resource",
+        "datagouv_toolkit.dataset_workflow.download_resource",
         fake_download,
     )
 
@@ -402,7 +402,7 @@ def test_run_workflow_writes_audit_file(
         print(f"Audit de {path.name}")
 
     monkeypatch.setattr(
-        "dataset_workflow.inspect_csv",
+        "datagouv_toolkit.dataset_workflow.inspect_csv",
         fake_inspect,
     )
 
@@ -436,19 +436,19 @@ def test_run_workflow_audit_dir_ignored_when_audit_disabled(
     audit_dir = tmp_path / "audits"
 
     monkeypatch.setattr(
-        "dataset_workflow.resolve_dataset",
+        "datagouv_toolkit.dataset_workflow.resolve_dataset",
         lambda *args, **kwargs: dataset,
     )
     monkeypatch.setattr(
-        "dataset_workflow.select_resources",
+        "datagouv_toolkit.dataset_workflow.select_resources",
         lambda *args, **kwargs: dataset["resources"],
     )
     monkeypatch.setattr(
-        "dataset_workflow.download_resource",
+        "datagouv_toolkit.dataset_workflow.download_resource",
         lambda resource, destination, *, overwrite=False: True,
     )
     monkeypatch.setattr(
-        "dataset_workflow.inspect_csv",
+        "datagouv_toolkit.dataset_workflow.inspect_csv",
         lambda path: None,
     )
 
