@@ -7,7 +7,7 @@ from pathlib import Path
 
 import requests
 
-from . import catalog_stats, datagouv
+from . import catalog_report, catalog_stats, datagouv
 from .dataset_workflow import run_workflow
 from .download_resources import download_resources, select_resources
 from .inspect_csv import DEFAULT_LOW_CARDINALITY, analyze_csv, inspect_csv
@@ -182,42 +182,27 @@ def command_inspect_csv(args: argparse.Namespace) -> None:
 
 def command_catalog_stats(args: argparse.Namespace) -> None:
     """Calcule les statistiques d'un snapshot local du catalogue."""
-    if args.top <= 0:
-        raise ValueError("--top doit être strictement positif")
-
-    snapshot, datasets_path, resources_path = catalog_stats.resolve_snapshot(
-        args.snapshot
-    )
-    total_datasets, candidates = catalog_stats.collect_dataset_candidates(
-        datasets_path,
+    result = catalog_report.analyze_catalog(
         args.query,
+        args.snapshot,
         producer=args.producer,
         license_name=args.license_name,
         frequency=args.frequency,
-    )
-    resource_stats = catalog_stats.collect_resource_stats(
-        resources_path,
-        set(candidates),
-        resource_format_filter=args.resource_format,
+        resource_format=args.resource_format,
+        top=args.top,
     )
 
-    selected_ids = resource_stats["dataset_ids"]
-    if args.resource_format is None:
-        selected_ids = set(candidates)
-
-    dataset_stats = catalog_stats.build_dataset_stats(
-        total_datasets,
-        candidates,
-        selected_ids,
-    )
-    catalog_stats.print_stats(
-        args.query,
-        snapshot,
-        dataset_stats,
-        resource_stats,
-        args.top,
-        args,
-    )
+    if getattr(args, "json", False):
+        print(
+            json.dumps(
+                result,
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            )
+        )
+    else:
+        catalog_report.print_catalog_report(result, args)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -425,6 +410,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=catalog_stats.DEFAULT_TOP,
         help="Nombre de valeurs affichées par classement (défaut: 15)",
     )
+    add_json_option(catalog_parser)
     catalog_parser.set_defaults(func=command_catalog_stats)
 
     return parser

@@ -60,7 +60,7 @@ datagouv = "datagouv_toolkit.cli:main"
 datagouv-download = "datagouv_toolkit.download_resources:main"
 datagouv-workflow = "datagouv_toolkit.dataset_workflow:main"
 datagouv-inspect-csv = "datagouv_toolkit.inspect_csv:main"
-datagouv-catalog-stats = "datagouv_toolkit.catalog_stats:main"
+datagouv-catalog-stats = "datagouv_toolkit.catalog_report:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
