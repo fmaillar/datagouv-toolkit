@@ -249,3 +249,75 @@ def test_catalog_stats_rejects_non_positive_top(tmp_path):
         assert str(exc) == "--top doit être strictement positif"
     else:
         raise AssertionError("ValueError attendu")
+
+def test_search_parser_maps_arguments():
+    args = cli.build_parser().parse_args(
+        ["search", "transport", "--limit", "7"]
+    )
+
+    assert args.command == "search"
+    assert args.query == "transport"
+    assert args.limit == 7
+    assert args.func is cli.datagouv.command_search
+
+
+def test_dataset_parsers_map_arguments():
+    expected = {
+        "dataset": cli.datagouv.command_dataset,
+        "resources": cli.datagouv.command_resources,
+        "stats": cli.datagouv.command_stats,
+        "inspect": cli.datagouv.command_inspect,
+        "metadata": cli.datagouv.command_metadata,
+    }
+
+    for command, func in expected.items():
+        args = cli.build_parser().parse_args(
+            [
+                command,
+                "example",
+                "--producer",
+                "Example Org",
+                "--title",
+                "Example",
+            ]
+        )
+
+        assert args.command == command
+        assert args.dataset == "example"
+        assert args.producer == "Example Org"
+        assert args.title == "Example"
+        assert args.func is func
+
+
+def test_organization_parser_maps_arguments():
+    args = cli.build_parser().parse_args(
+        ["organization", "abc"]
+    )
+
+    assert args.organization_id == "abc"
+    assert args.func is cli.datagouv.command_organization
+
+
+def test_main_success(monkeypatch):
+    called = []
+
+    monkeypatch.setattr(
+        cli,
+        "build_parser",
+        lambda: type(
+            "Parser",
+            (),
+            {
+                "parse_args": lambda self: type(
+                    "Args",
+                    (),
+                    {
+                        "func": lambda self, args: called.append(True),
+                    },
+                )()
+            },
+        )(),
+    )
+
+    assert cli.main() == 0
+    assert called == [True]
