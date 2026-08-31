@@ -446,6 +446,58 @@ Les filtres `--format` et `--resource-title` permettent de sélectionner les res
 
 À ce stade, on passe de la **découverte de données** à leur **acquisition**.
 
+### Une sortie JSON pour les scripts
+
+La sortie humaine est adaptée au terminal. Pour chaîner le téléchargement avec un script ou un autre outil Unix, `download` accepte `--json` :
+
+```bash
+datagouv download \
+  "accidents corporels" \
+  --producer "Ministère de l'intérieur" \
+  --format csv \
+  --resource-title "Caract_2024" \
+  --output data \
+  --json
+```
+
+La réponse contient notamment le dataset résolu, le répertoire de destination et une liste `resources`. Pour chaque ressource, le résultat expose son chemin local avec `path` et indique avec `downloaded` si le fichier vient réellement d'être téléchargé.
+
+```json
+{
+  "dataset": {
+    "id": "...",
+    "title": "..."
+  },
+  "destination": ".../data",
+  "resources": [
+    {
+      "downloaded": true,
+      "path": "data/Caract_2024.csv",
+      "resource": {
+        "id": "...",
+        "title": "Caract_2024.csv"
+      }
+    }
+  ]
+}
+```
+
+Si un fichier existe déjà et que `--overwrite` n'est pas utilisé, il n'est pas retéléchargé et `downloaded` vaut `false`. Cette distinction est utile pour un pipeline automatisé : le programme appelant peut savoir ce qui a réellement changé sans analyser une phrase destinée à un humain.
+
+La sortie peut être filtrée avec `jq` :
+
+```bash
+datagouv download \
+  "accidents corporels" \
+  --producer "Ministère de l'intérieur" \
+  --format csv \
+  --resource-title "Caract_2024" \
+  --output data \
+  --json | jq '.resources[] | {path, downloaded}'
+```
+
+On applique ici un principe Unix classique : **stdout transporte la donnée structurée**, ce qui permet de la composer avec d'autres programmes.
+
 ## 14. `inspect-csv` : faire du data profiling
 
 Une fois un CSV présent localement :
@@ -539,6 +591,8 @@ auditer
         ↓
 produire les résultats d'audit
 ```
+
+Le workflow s'appuie sur les mêmes résultats structurés de téléchargement que `download`. Il réutilise donc le chemin local et le statut de téléchargement de chaque ressource au lieu de reconstruire ces informations séparément.
 
 Un **workflow** ou **pipeline** transforme une suite d'opérations manuelles en procédure explicite et répétable.
 
@@ -705,6 +759,8 @@ datagouv download \
 
 Notions : acquisition, sélection de ressources, fichiers locaux.
 
+Pour automatiser cette étape, la même commande avec `--json` fournit un résultat structuré directement consommable par `jq`, Python ou un autre programme.
+
 ### Étape 8 — Auditer
 
 ```bash
@@ -781,7 +837,7 @@ Après ce parcours, plusieurs approfondissements deviennent naturels :
 
 1. lire `cli.py` pour comprendre la construction des sous-commandes avec `argparse` ;
 2. lire `datagouv.py` pour suivre une requête HTTP et la résolution d'un dataset ;
-3. examiner `download_resources.py` pour comprendre le téléchargement robuste de fichiers ;
+3. examiner `download_resources.py` pour comprendre le téléchargement robuste de fichiers et ses résultats structurés ;
 4. examiner `inspect_csv.py` pour comprendre le profilage tabulaire ;
 5. étudier `dataset_workflow.py` pour voir comment plusieurs briques indépendantes sont composées ;
 6. utiliser `catalog_stats.py` pour passer de l'exploration d'un dataset à l'analyse reproductible d'un catalogue complet ;
