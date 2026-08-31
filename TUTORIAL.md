@@ -1,6 +1,6 @@
 # Tutoriel approfondi de `datagouv`
 
-Ce tutoriel présente `datagouv` progressivement, depuis la découverte du catalogue jusqu'au téléchargement, à l'audit et à l'analyse. L'objectif n'est pas seulement d'apprendre des commandes : il s'agit aussi de comprendre les notions qu'elles représentent — API HTTP, datasets, ressources, métadonnées, JSON, filtrage, reproductibilité et pipeline de données.
+Ce tutoriel présente `datagouv` progressivement, depuis la découverte du catalogue jusqu'à la sélection, au handoff et au téléchargement des ressources. L'objectif n'est pas de remplacer R, Python, DuckDB ou d'autres outils d'analyse : `datagouv-toolkit` intervient surtout en amont, pour explorer data.gouv.fr, évaluer ce qui est disponible, sélectionner les bonnes ressources et les transmettre proprement à l'outil de travail choisi.
 
 ## 1. Le modèle de données de data.gouv.fr
 
@@ -24,11 +24,7 @@ data.gouv.fr
                 └── autres fichiers
 ```
 
-Une **organisation** représente un producteur de données.
-
-Un **dataset** est un jeu de données au sens documentaire et logique. Il possède un titre, une description, un producteur, des métadonnées et éventuellement plusieurs ressources.
-
-Une **ressource** est un fichier ou un accès concret aux données. Un dataset sur les accidents routiers peut, par exemple, contenir plusieurs fichiers CSV correspondant à différentes tables ou années.
+Une **organisation** représente un producteur de données. Un **dataset** est un jeu de données au sens documentaire et logique. Une **ressource** est un fichier ou un accès concret aux données.
 
 Cette distinction est fondamentale : rechercher un dataset dans le catalogue n'est pas encore télécharger ses données.
 
@@ -58,29 +54,13 @@ Par exemple :
 datagouv search "qualité de l'air"
 ```
 
-- `datagouv` est le programme ;
-- `search` est une sous-commande ;
-- `"qualité de l'air"` est un argument positionnel.
-
 Une option commence généralement par `-` ou `--` :
 
 ```bash
 datagouv search "qualité de l'air" --limit 5
 ```
 
-Ici, `--limit 5` modifie le nombre de résultats affichés.
-
-Cette architecture est analogue à celle de commandes comme `git status`, `git commit` ou `apt install` : un même programme expose plusieurs opérations cohérentes.
-
-### Aide générale et aide locale
-
-L'aide générale donne la liste des sous-commandes :
-
-```bash
-datagouv --help
-```
-
-Chaque sous-commande possède ensuite sa propre aide :
+Chaque sous-commande possède sa propre aide :
 
 ```bash
 datagouv search --help
@@ -89,57 +69,19 @@ datagouv resources --help
 datagouv download --help
 ```
 
-Il est généralement préférable de consulter `--help` plutôt que de mémoriser toutes les options.
-
 ## 3. Rechercher un dataset
-
-Commençons par une recherche simple :
 
 ```bash
 datagouv search "qualité de l'air"
 ```
 
-`datagouv` interroge l'API publique de data.gouv.fr. Conceptuellement, le dialogue ressemble à ceci :
-
-```text
-datagouv
-   │
-   │ requête HTTP GET
-   ▼
-API data.gouv.fr
-   │
-   │ réponse JSON
-   ▼
-datagouv
-   │
-   ▼
-affichage terminal
-```
-
-### API
-
-Une **API** (Application Programming Interface) est ici une interface destinée aux programmes. Au lieu d'ouvrir une page Web et de cliquer dans un navigateur, `datagouv` envoie des requêtes HTTP au serveur et exploite les réponses structurées.
-
-### HTTP GET
-
-`GET` est la méthode HTTP utilisée pour demander une représentation d'une ressource sans la modifier. Le toolkit est conçu ici pour effectuer des opérations de lecture sur l'API catalogue.
-
-### Pagination
-
-On peut limiter l'affichage :
+`datagouv` interroge l'API publique de data.gouv.fr et présente les résultats dans le terminal. Avec `--json`, les résultats peuvent être consommés par un autre programme.
 
 ```bash
-datagouv search "qualité de l'air" --limit 5
+datagouv search "qualité de l'air" --limit 5 --json | jq .
 ```
 
-Si la CLI indique par exemple qu'un grand nombre de résultats ont été trouvés mais que cinq seulement sont affichés, il faut distinguer :
-
-- le nombre total de résultats correspondant à la requête ;
-- le nombre de résultats récupérés ou présentés sur cette page.
-
-Ce mécanisme est appelé **pagination**. Une API évite ainsi de transférer des milliers d'objets lorsqu'une petite partie suffit.
-
-## 4. Recherche textuelle et identifiant stable
+## 4. Recherche textuelle, identifiant stable et `--first`
 
 Une commande comme :
 
@@ -147,66 +89,41 @@ Une commande comme :
 datagouv dataset "qualité de l'air"
 ```
 
-peut correspondre à plusieurs datasets. Une chaîne de caractères destinée aux humains n'identifie pas nécessairement un objet de manière unique.
+peut correspondre à plusieurs datasets. Par défaut, `datagouv` propose alors une sélection interactive.
 
-On distingue donc :
-
-```text
-titre lisible
-    │
-    └── utile aux humains
-
-identifiant
-    │
-    └── utile pour identifier précisément un objet
-```
-
-Lorsque plusieurs datasets correspondent à une recherche, `datagouv` propose une sélection interactive.
-
-Pour un script reproductible, un identifiant stable est généralement préférable à une recherche textuelle : le classement ou le titre des résultats peut évoluer alors que l'identité de l'objet reste la même.
-
-## 5. Réduire l'ambiguïté avec des filtres
-
-Le toolkit permet de préciser notamment le producteur ou le titre :
+Pour un usage non interactif, `--first` sélectionne le premier résultat **après** application éventuelle des filtres `--producer` et `--title` :
 
 ```bash
 datagouv dataset \
   "accidents corporels" \
-  --producer "Ministère de l'intérieur"
+  --producer "Ministère de l'intérieur" \
+  --first
+```
+
+`--first` est utile dans un shell, un job CI ou un script. Pour une automatisation qui doit être strictement reproductible dans le temps, un identifiant stable de dataset reste préférable à une recherche textuelle.
+
+## 5. Réduire l'ambiguïté avec des filtres
+
+```bash
+datagouv dataset \
+  "accidents corporels" \
+  --producer "Ministère de l'intérieur" \
+  --title "accidents"
 ```
 
 Le raisonnement devient :
 
 ```text
 recherche textuelle
-        │
-        ▼
+        ↓
 datasets candidats
-        │
-        ├── filtre producteur
-        └── filtre titre éventuel
-        │
-        ▼
+        ↓
+filtre producteur / titre
+        ↓
+sélection interactive ou --first
+        ↓
 dataset retenu
 ```
-
-C'est une opération de **filtrage** : on part d'un ensemble de candidats et on ne conserve que ceux qui satisfont certains critères.
-
-La même notion se retrouve dans pandas :
-
-```python
-df[df["producer"] == "..."]
-```
-
-ou en SQL :
-
-```sql
-SELECT *
-FROM datasets
-WHERE producer = '...';
-```
-
-La syntaxe change, mais l'opération conceptuelle reste la même.
 
 ## 6. `dataset` : obtenir une vue synthétique
 
@@ -216,13 +133,13 @@ datagouv dataset \
   --producer "Ministère de l'intérieur"
 ```
 
-L'API peut renvoyer un objet riche contenant de nombreux champs. La commande `dataset` en présente une vue adaptée à une lecture humaine.
+La commande présente une vue adaptée à une lecture humaine. Pour une sortie structurée :
 
-C'est une forme de **projection** : on sélectionne une partie utile d'une structure plus vaste au lieu d'exposer systématiquement tous les champs techniques.
+```bash
+datagouv dataset "accidents corporels" --first --json | jq .
+```
 
-Cette séparation est importante dans la conception d'une CLI : le format optimal pour une machine n'est pas nécessairement le format optimal pour un humain.
-
-## 7. `resources` : passer du catalogue aux fichiers
+## 7. `resources` : évaluer, filtrer et sélectionner avant téléchargement
 
 ```bash
 datagouv resources \
@@ -230,25 +147,84 @@ datagouv resources \
   --producer "Ministère de l'intérieur"
 ```
 
-Un dataset peut référencer plusieurs ressources :
+Un dataset peut référencer plusieurs ressources avec un titre, un format, une URL et parfois une taille connue.
 
-```text
-dataset
-│
-├── resource 1
-│     ├── titre
-│     ├── format
-│     ├── URL
-│     └── taille éventuelle
-│
-├── resource 2
-│
-└── resource 3
+La commande `resources` est maintenant l'étape centrale entre la découverte d'un dataset et son acquisition. Elle peut filtrer les ressources :
+
+```bash
+datagouv resources \
+  "accidents corporels" \
+  --producer "Ministère de l'intérieur" \
+  --format csv \
+  --resource-title "2024" \
+  --first
 ```
 
-Le **catalogue** décrit donc les données, tandis que les **ressources** donnent accès à leur contenu concret.
+Cette étape permet d'évaluer ce qui sera transmis ou téléchargé sans encore écrire les fichiers localement.
 
-On peut comparer cela à une bibliothèque : la notice bibliographique décrit un livre, mais elle n'est pas le livre lui-même.
+### Sortie JSON complète des ressources sélectionnées
+
+```bash
+datagouv resources \
+  "accidents corporels" \
+  --format csv \
+  --first \
+  --json | jq .
+```
+
+### `--urls` : handoff minimal pour les outils Unix
+
+```bash
+datagouv resources \
+  "accidents corporels" \
+  --format csv \
+  --first \
+  --urls
+```
+
+La sortie contient uniquement les URL, une par ligne. Elle peut être directement composée avec d'autres outils :
+
+```bash
+datagouv resources \
+  "accidents corporels" \
+  --format csv \
+  --first \
+  --urls | xargs -n1 wget
+```
+
+Le même principe permet de transmettre les URL à `curl`, `aria2c`, un script Python ou tout autre programme acceptant des URL en entrée.
+
+### `--manifest` : handoff structuré
+
+```bash
+datagouv resources \
+  "accidents corporels" \
+  --format csv \
+  --first \
+  --manifest | jq .
+```
+
+Le manifeste contient un résumé du dataset et, pour chaque ressource sélectionnée :
+
+```json
+{
+  "dataset": {
+    "id": "...",
+    "title": "..."
+  },
+  "resources": [
+    {
+      "id": "...",
+      "title": "...",
+      "format": "csv",
+      "filesize": 123456,
+      "url": "https://..."
+    }
+  ]
+}
+```
+
+Ce format est destiné au passage vers des outils externes. `--json`, `--urls` et `--manifest` sont volontairement mutuellement exclusifs.
 
 ## 8. `metadata` : des données sur les données
 
@@ -258,19 +234,7 @@ datagouv metadata \
   --producer "Ministère de l'intérieur"
 ```
 
-Les **métadonnées** sont des informations décrivant les données : titre, description, producteur, licence, tags, dates, métriques ou autres propriétés publiées dans le catalogue.
-
-Il faut distinguer :
-
-```text
-donnée
-    un enregistrement décrivant un phénomène observé
-
-métadonnée
-    une information décrivant le dataset ou la ressource
-```
-
-Cette distinction est centrale en science des données, en archivistique et en science ouverte. Les métadonnées permettent notamment d'évaluer la provenance, l'interprétation et les conditions de réutilisation d'un dataset avant même d'en charger le contenu.
+Les métadonnées permettent d'évaluer la provenance, la licence, les tags, les dates et d'autres propriétés avant de charger le contenu des ressources.
 
 ## 9. `stats` : caractériser les ressources
 
@@ -280,41 +244,9 @@ datagouv stats \
   --producer "Ministère de l'intérieur"
 ```
 
-Cette commande produit des statistiques sur les **ressources du dataset**.
-
-Il faut distinguer deux niveaux d'analyse :
-
-```text
-statistiques sur les ressources
-        │
-        └── structure du catalogue
-
-statistiques sur les colonnes d'un CSV
-        │
-        └── contenu des données
-```
-
-`stats` appartient au premier niveau. Elle permet de caractériser un dataset avant ou indépendamment d'une analyse statistique de son contenu.
+`stats` caractérise les ressources décrites dans le catalogue. Il ne s'agit pas d'une analyse statistique scientifique du contenu téléchargé.
 
 ## 10. `inspect` : observer le JSON brut
-
-Pour obtenir la représentation JSON complète du dataset :
-
-```bash
-datagouv inspect \
-  "accidents corporels" \
-  --producer "Ministère de l'intérieur"
-```
-
-Cette commande est particulièrement utile pour :
-
-- comprendre la structure de l'API ;
-- découvrir un champ qui n'est pas présenté par les vues synthétiques ;
-- développer une nouvelle fonctionnalité ;
-- déboguer ;
-- chaîner `datagouv` avec un autre programme.
-
-Par exemple :
 
 ```bash
 datagouv inspect \
@@ -322,72 +254,29 @@ datagouv inspect \
   --producer "Ministère de l'intérieur" | jq
 ```
 
-Le pipe Unix `|` connecte la sortie standard de `datagouv` à l'entrée standard de `jq` :
+Cette commande est utile pour comprendre la structure exacte de l'API ou récupérer un champ qui n'est pas exposé par une vue synthétique.
+
+## 11. Comprendre le handoff
+
+Le cœur du workflow est la séparation entre la **phase amont** prise en charge par le toolkit et la **phase d'analyse** confiée à un outil spécialisé :
 
 ```text
-datagouv
-   │
-   │ JSON
-   ▼
-   |
-   ▼
-  jq
-   │
-   ▼
-terminal
+data.gouv.fr
+    ↓
+recherche
+    ↓
+résolution du dataset
+    ↓
+évaluation des métadonnées
+    ↓
+filtrage des ressources
+    ↓
+URL / manifeste / téléchargement
+    ↓
+R, Python, DuckDB, Julia, Spark, etc.
 ```
 
-C'est une propriété importante des outils en ligne de commande : plusieurs programmes spécialisés peuvent être composés plutôt que de concentrer toutes les fonctions dans une seule application.
-
-## 11. Comprendre JSON
-
-JSON représente quelques structures fondamentales.
-
-Un objet :
-
-```json
-{
-  "title": "Exemple",
-  "count": 12
-}
-```
-
-Une liste :
-
-```json
-[
-  "csv",
-  "json",
-  "parquet"
-]
-```
-
-Des valeurs :
-
-```json
-"texte"
-42
-3.14
-true
-false
-null
-```
-
-Ces structures correspondent naturellement aux objets Python courants :
-
-```text
-JSON        Python
------------------
-objet       dict
-liste       list
-chaîne      str
-entier      int
-nombre      float
-booléen     bool
-null        None
-```
-
-Le module métier `datagouv.py` utilise `requests` pour communiquer avec l'API et manipuler les réponses JSON sous forme d'objets Python.
+Cette séparation évite de transformer `datagouv-toolkit` en framework généraliste d'analyse. Son rôle est de rendre l'accès à data.gouv.fr reproductible, inspectable et composable.
 
 ## 12. `organization` : examiner un producteur
 
@@ -395,25 +284,11 @@ Le module métier `datagouv.py` utilise `requests` pour communiquer avec l'API e
 datagouv organization <identifiant>
 ```
 
-Une organisation est liée aux datasets qu'elle publie. On peut représenter le modèle conceptuel ainsi :
-
-```text
-organisation
-     │
-     │ publie
-     ▼
-  dataset
-     │
-     │ contient/référence
-     ▼
- ressource
-```
-
-Les identifiants permettent de relier ces objets sans dépendre de leur libellé humain.
+Une organisation publie des datasets ; ceux-ci référencent ensuite des ressources. Les identifiants permettent de relier ces objets sans dépendre uniquement de leur libellé humain.
 
 ## 13. `download` : acquérir les données
 
-Après l'exploration du catalogue, on peut télécharger une ressource :
+Après exploration et sélection :
 
 ```bash
 datagouv download \
@@ -424,81 +299,35 @@ datagouv download \
   --output data
 ```
 
-Le pipeline conceptuel devient :
+Le pipeline devient :
 
 ```text
 catalogue distant
-       │
-       ▼
+       ↓
 résolution du dataset
-       │
-       ▼
+       ↓
 sélection des ressources
-       │
-       ▼
+       ↓
 téléchargement HTTP
-       │
-       ▼
+       ↓
 fichiers locaux
+       ↓
+outil d'analyse externe
 ```
 
-Les filtres `--format` et `--resource-title` permettent de sélectionner les ressources pertinentes. `--output` définit le répertoire local de destination.
-
-À ce stade, on passe de la **découverte de données** à leur **acquisition**.
-
-### Une sortie JSON pour les scripts
-
-La sortie humaine est adaptée au terminal. Pour chaîner le téléchargement avec un script ou un autre outil Unix, `download` accepte `--json` :
+Pour les scripts :
 
 ```bash
 datagouv download \
   "accidents corporels" \
-  --producer "Ministère de l'intérieur" \
   --format csv \
   --resource-title "Caract_2024" \
-  --output data \
-  --json
-```
-
-La réponse contient notamment le dataset résolu, le répertoire de destination et une liste `resources`. Pour chaque ressource, le résultat expose son chemin local avec `path` et indique avec `downloaded` si le fichier vient réellement d'être téléchargé.
-
-```json
-{
-  "dataset": {
-    "id": "...",
-    "title": "..."
-  },
-  "destination": ".../data",
-  "resources": [
-    {
-      "downloaded": true,
-      "path": "data/Caract_2024.csv",
-      "resource": {
-        "id": "...",
-        "title": "Caract_2024.csv"
-      }
-    }
-  ]
-}
-```
-
-Si un fichier existe déjà et que `--overwrite` n'est pas utilisé, il n'est pas retéléchargé et `downloaded` vaut `false`. Cette distinction est utile pour un pipeline automatisé : le programme appelant peut savoir ce qui a réellement changé sans analyser une phrase destinée à un humain.
-
-La sortie peut être filtrée avec `jq` :
-
-```bash
-datagouv download \
-  "accidents corporels" \
-  --producer "Ministère de l'intérieur" \
-  --format csv \
-  --resource-title "Caract_2024" \
+  --first \
   --output data \
   --json | jq '.resources[] | {path, downloaded}'
 ```
 
-On applique ici un principe Unix classique : **stdout transporte la donnée structurée**, ce qui permet de la composer avec d'autres programmes.
-
-## 14. `inspect-csv` : faire du data profiling
+## 14. `inspect-csv` : audit structurel local
 
 Une fois un CSV présent localement :
 
@@ -506,341 +335,114 @@ Une fois un CSV présent localement :
 datagouv inspect-csv fichier.csv
 ```
 
-Pour un audit volumineux :
+Cette commande réalise un **data profiling** léger : dimensions, types, valeurs manquantes, doublons, cardinalités, clés candidates et aperçu.
+
+Pour une sortie structurée :
 
 ```bash
-datagouv inspect-csv fichier.csv > audit.txt
+datagouv inspect-csv fichier.csv --json \
+  | jq '.file, .candidate_keys, .duplicate_rows'
 ```
 
-Cette étape correspond au **data profiling**, c'est-à-dire à l'examen systématique de la structure et de la qualité apparente d'un fichier avant analyse.
+L'objectif est d'aider à décider comment travailler ensuite avec le fichier, pas de remplacer une analyse réalisée avec pandas, Polars, R, DuckDB ou un autre environnement.
 
-On cherche typiquement à comprendre :
-
-- le nombre de lignes et de colonnes ;
-- les noms et types de colonnes ;
-- les valeurs manquantes ;
-- les distributions ou cardinalités utiles ;
-- l'encodage et le séparateur lorsque leur détection est nécessaire.
-
-Un cycle de travail robuste ressemble davantage à :
-
-```text
-acquisition
-    ↓
-inspection
-    ↓
-nettoyage / normalisation
-    ↓
-analyse
-```
-
-qu'à une analyse immédiate d'un fichier dont on ne connaît pas encore la structure.
-
-## 15. Pourquoi les CSV demandent une inspection
-
-Le terme CSV masque plusieurs variantes.
-
-Un fichier peut utiliser une virgule :
-
-```text
-nom,age
-Alice,32
-Bob,41
-```
-
-ou un point-virgule :
-
-```text
-nom;age
-Alice;32
-Bob;41
-```
-
-L'encodage peut également varier. UTF-8 est aujourd'hui très courant, mais des fichiers historiques peuvent utiliser d'autres encodages.
-
-Une mauvaise interprétation de l'encodage transforme par exemple des caractères accentués en texte illisible. Une mauvaise interprétation du séparateur peut conduire à lire une ligne entière comme une seule colonne.
-
-L'audit préalable permet donc de détecter des hypothèses de lecture incorrectes avant qu'elles ne contaminent l'analyse.
-
-## 16. `workflow` : automatiser le pipeline
-
-Le projet fournit une commande qui enchaîne téléchargement et audit :
+## 15. `workflow` : téléchargement suivi d'un audit CSV
 
 ```bash
 datagouv workflow \
   "accidents corporels" \
-  --producer "Ministère de l'intérieur" \
   --format csv \
   --resource-title "Caract_2024" \
+  --first \
   --output data \
   --audit-dir audits
 ```
 
-Le workflow réalise conceptuellement :
+Cette commande combine résolution, sélection, téléchargement et audit CSV. Elle est utile lorsque l'on souhaite immédiatement obtenir une première description structurelle des fichiers téléchargés.
 
-```text
-résoudre le dataset
-        ↓
-sélectionner les ressources
-        ↓
-télécharger
-        ↓
-identifier les CSV concernés
-        ↓
-auditer
-        ↓
-produire les résultats d'audit
-```
-
-Le workflow s'appuie sur les mêmes résultats structurés de téléchargement que `download`. Il réutilise donc le chemin local et le statut de téléchargement de chaque ressource au lieu de reconstruire ces informations séparément.
-
-Un **workflow** ou **pipeline** transforme une suite d'opérations manuelles en procédure explicite et répétable.
-
-C'est un premier pas vers les pratiques d'ingénierie des données : acquisition, validation, transformation et analyse sont séparées en étapes dont le comportement peut être contrôlé.
-
-## 17. Reproductibilité
-
-Une manipulation manuelle dans un navigateur peut être facile à réaliser une fois mais difficile à reproduire exactement plusieurs mois plus tard.
-
-Une commande documentée :
-
-```bash
-datagouv workflow ...
-```
-
-peut au contraire être :
-
-- conservée dans un script ;
-- versionnée avec Git ;
-- relue ;
-- rejouée ;
-- testée ;
-- documentée avec les résultats qu'elle produit.
-
-La **reproductibilité** ne signifie pas seulement obtenir à nouveau un résultat. Elle implique aussi de conserver suffisamment d'informations sur la procédure pour comprendre comment ce résultat a été produit.
-
-## 18. `catalog-stats` : le catalogue devient lui-même une donnée
-
-Le toolkit peut également analyser un snapshot local du catalogue :
+## 16. `catalog-stats` : explorer un snapshot local du catalogue
 
 ```bash
 datagouv catalog-stats "transport" \
   --snapshot snapshot/2026-08-25
 ```
 
-Avec des filtres :
+Avec filtres :
 
 ```bash
 datagouv catalog-stats "énergie" \
   --snapshot snapshot/2026-08-25 \
   --license fr-lo-2.0 \
-  --frequency annual
+  --frequency annual \
+  --format csv
 ```
 
-On change alors de niveau :
+La sortie structurée permet de composer l'exploration avec `jq` :
 
-```text
-données publiées
-      ↑
-datasets qui les organisent
-      ↑
-catalogue qui décrit les datasets
-      ↑
-analyse statistique du catalogue
+```bash
+datagouv catalog-stats "transport" \
+  --snapshot snapshot/2026-08-25 \
+  --json | jq '.datasets, .resources, .rankings.formats'
 ```
 
-Le catalogue est lui-même traité comme une source de données. On peut ainsi étudier les formats, licences, fréquences ou autres métadonnées disponibles dans le snapshot.
+Cette commande sert à caractériser le catalogue localement : nombre de datasets et ressources, tailles connues ou inconnues, formats, producteurs, licences et fréquences.
 
-L'utilisation d'un **snapshot** est importante pour la reproductibilité : un catalogue en ligne évolue continuellement, tandis qu'une copie datée fournit un état de référence stable pour une analyse.
+## 17. Un workflow complet avant analyse
 
-## 19. Architecture du toolkit
-
-Le dépôt sépare les responsabilités :
-
-```text
-cli.py
-    interface en ligne de commande unifiée
-        │
-        ├── datagouv.py
-        │     exploration et résolution des datasets
-        │
-        ├── download_resources.py
-        │     téléchargement des ressources
-        │
-        ├── dataset_workflow.py
-        │     orchestration téléchargement + audit
-        │
-        ├── inspect_csv.py
-        │     audit structurel des CSV
-        │
-        ├── catalog_stats.py
-        │     analyse des snapshots du catalogue
-        │
-        └── normalize.py
-              normalisation des métadonnées
-```
-
-Cette séparation suit un principe classique de conception logicielle : **séparer l'interface de la logique métier**.
-
-`cli.py` interprète ce que l'utilisateur demande. Les autres modules réalisent les opérations correspondantes. Cette organisation facilite les tests et évite que la logique métier dépende inutilement de la manière dont elle est déclenchée depuis le terminal.
-
-## 20. Parcours pratique recommandé
-
-Pour apprendre le toolkit, on peut prendre le BAAC comme fil rouge et suivre les commandes dans cet ordre.
-
-### Étape 1 — Découvrir
+Un usage typique peut être résumé ainsi :
 
 ```bash
 datagouv search "accidents corporels"
-```
 
-Notions : recherche, API, HTTP, pagination.
-
-### Étape 2 — Identifier
-
-```bash
-datagouv dataset \
-  "accidents corporels" \
-  --producer "Ministère de l'intérieur"
-```
-
-Notions : dataset, identifiant, résolution, filtrage.
-
-### Étape 3 — Comprendre la provenance
-
-```bash
-datagouv metadata \
-  "accidents corporels" \
-  --producer "Ministère de l'intérieur"
-```
-
-Notions : métadonnées, producteur, provenance.
-
-### Étape 4 — Examiner les fichiers disponibles
-
-```bash
 datagouv resources \
   "accidents corporels" \
-  --producer "Ministère de l'intérieur"
-```
+  --producer "Ministère de l'intérieur" \
+  --format csv \
+  --resource-title "2024" \
+  --first \
+  --manifest | jq .
 
-Notions : ressource, format, URL, catalogue.
-
-### Étape 5 — Caractériser les ressources
-
-```bash
-datagouv stats \
-  "accidents corporels" \
-  --producer "Ministère de l'intérieur"
-```
-
-Notions : statistiques descriptives du catalogue.
-
-### Étape 6 — Descendre au niveau de l'API
-
-```bash
-datagouv inspect \
-  "accidents corporels" \
-  --producer "Ministère de l'intérieur" | jq
-```
-
-Notions : JSON, structure d'API, composition Unix.
-
-### Étape 7 — Télécharger
-
-```bash
 datagouv download \
   "accidents corporels" \
   --producer "Ministère de l'intérieur" \
   --format csv \
   --resource-title "Caract_2024" \
+  --first \
   --output data
+
+datagouv inspect-csv data/Caract_2024.csv --json | jq .
 ```
 
-Notions : acquisition, sélection de ressources, fichiers locaux.
+Puis l'analyse proprement dite continue dans l'outil approprié, par exemple Python :
 
-Pour automatiser cette étape, la même commande avec `--json` fournit un résultat structuré directement consommable par `jq`, Python ou un autre programme.
+```python
+import pandas as pd
 
-### Étape 8 — Auditer
-
-```bash
-datagouv inspect-csv data/<fichier.csv>
+df = pd.read_csv("data/Caract_2024.csv")
 ```
 
-Notions : data profiling, schéma, qualité, valeurs manquantes.
+ou R :
 
-### Étape 9 — Automatiser
-
-```bash
-datagouv workflow \
-  "accidents corporels" \
-  --producer "Ministère de l'intérieur" \
-  --format csv \
-  --resource-title "Caract_2024" \
-  --output data \
-  --audit-dir audits
+```r
+df <- read.csv("data/Caract_2024.csv")
 ```
 
-Notions : pipeline, automatisation, reproductibilité.
+ou DuckDB :
 
-## 21. Du terminal au code Python
-
-Une fois ces notions comprises, il devient plus facile de lire le code du toolkit.
-
-Le trajet conceptuel complet est :
-
-```text
-commande shell
-      ↓
-argparse / cli.py
-      ↓
-fonction métier
-      ↓
-requests
-      ↓
-HTTP
-      ↓
-API data.gouv.fr
-      ↓
-JSON
-      ↓
-dict/list Python
-      ↓
-filtrage et présentation
-      ↓
-terminal ou fichier local
+```sql
+SELECT *
+FROM read_csv_auto('data/Caract_2024.csv');
 ```
 
-Pour les données tabulaires, le trajet se poursuit :
+## 18. Principe de conception
 
-```text
-ressource distante
-      ↓
-téléchargement
-      ↓
-CSV local
-      ↓
-inspection
-      ↓
-normalisation éventuelle
-      ↓
-pandas / NumPy / outils statistiques
-      ↓
-analyse reproductible
-```
+`datagouv-toolkit` suit une logique de toolbox composable :
 
-Ainsi, les commandes du toolkit ne sont pas des fonctions isolées : elles représentent différentes étapes d'une même chaîne de traitement de données.
+- les sorties humaines servent à l'exploration interactive ;
+- les sorties JSON servent aux scripts ;
+- `--urls` fournit un flux minimal pour les pipelines Unix ;
+- `--manifest` fournit un contrat compact pour le handoff ;
+- `--first` permet une résolution non interactive lorsque c'est souhaité ;
+- les outils d'analyse spécialisés prennent le relais après acquisition.
 
-## 22. Aller plus loin
-
-Après ce parcours, plusieurs approfondissements deviennent naturels :
-
-1. lire `cli.py` pour comprendre la construction des sous-commandes avec `argparse` ;
-2. lire `datagouv.py` pour suivre une requête HTTP et la résolution d'un dataset ;
-3. examiner `download_resources.py` pour comprendre le téléchargement robuste de fichiers et ses résultats structurés ;
-4. examiner `inspect_csv.py` pour comprendre le profilage tabulaire ;
-5. étudier `dataset_workflow.py` pour voir comment plusieurs briques indépendantes sont composées ;
-6. utiliser `catalog_stats.py` pour passer de l'exploration d'un dataset à l'analyse reproductible d'un catalogue complet ;
-7. consulter `datasets/baac/` comme exemple de pipeline spécialisé construit au-dessus des outils génériques.
-
-Le principe directeur est de conserver des couches distinctes : **découvrir → identifier → comprendre → acquérir → auditer → analyser → reproduire**.
+Le projet se concentre donc sur la question : **quelles données de data.gouv.fr faut-il récupérer, comment les sélectionner proprement, et comment les transmettre à l'outil qui les exploitera ensuite ?**
