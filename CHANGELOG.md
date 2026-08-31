@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-## [0.2.0] - 2026-08-31
+## [0.2.1] - 2026-08-31
 
 ### Added
 
@@ -27,6 +27,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 
 - Interactive dataset selection now handles end-of-file input as an interruption instead of repeatedly prompting forever.
+- CLI error-handler tests now use correctly bound mock callables across Python 3.11–3.13.
+
+## [0.2.0] - 2026-08-26
+
+### Added
+
+- Published BAAC 2005–2024 analysis release.
 
 ## [0.1.1] - 2026-08-25
 
@@ -60,7 +67,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Ruff, mypy, Bandit, pytest, and coverage checks.
 - GPL-3.0-only license.
 
-[Unreleased]: https://github.com/fmaillar/datagouv-toolkit/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/fmaillar/datagouv-toolkit/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/fmaillar/datagouv-toolkit/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/fmaillar/datagouv-toolkit/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/fmaillar/datagouv-toolkit/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/fmaillar/datagouv-toolkit/releases/tag/v0.1.0
