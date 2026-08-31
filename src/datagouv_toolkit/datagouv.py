@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Fonctions métier pour explorer le catalogue data.gouv.fr.
 
 Ce module regroupe l'accès à l'API catalogue, la résolution des jeux de

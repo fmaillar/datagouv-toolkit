@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Normalisation prudente des métadonnées du catalogue data.gouv.fr.
 
 Ce module contient des fonctions de normalisation destinées à rendre les

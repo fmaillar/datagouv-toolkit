@@ -4,8 +4,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-import inspect_csv as module
-from inspect_csv import (
+from datagouv_toolkit import inspect_csv as module
+from datagouv_toolkit.inspect_csv import (
     detect_encoding,
     detect_separator,
     find_candidate_keys,

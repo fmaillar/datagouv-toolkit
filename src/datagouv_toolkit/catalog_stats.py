@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Statistiques reproductibles sur un snapshot du catalogue data.gouv.fr.
 
 Le script analyse localement les exports ``datasets.parquet`` et ``resources.parquet``
@@ -43,7 +42,7 @@ from pathlib import Path
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from normalize import (
+from .normalize import (
     normalize_format,
     normalize_frequency,
     normalize_license,
