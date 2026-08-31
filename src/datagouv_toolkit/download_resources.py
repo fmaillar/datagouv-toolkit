@@ -112,9 +112,10 @@ def download_resources(
     output_dir: Path,
     *,
     overwrite: bool = False,
-) -> None:
-    """Télécharge une liste de ressources."""
+) -> list[dict]:
+    """Télécharge une liste de ressources et retourne le résultat de chacune."""
     total = len(resources)
+    results = []
 
     for index, resource in enumerate(
         resources,
@@ -125,15 +126,31 @@ def download_resources(
 
         if destination.exists() and not overwrite:
             print(f"[{index}/{total}] SKIP {filename}")
+            results.append(
+                {
+                    "resource": resource,
+                    "path": destination,
+                    "downloaded": False,
+                }
+            )
             continue
 
         print(f"[{index}/{total}] GET  {filename}")
 
-        download_resource(
+        downloaded = download_resource(
             resource,
             destination,
             overwrite=overwrite,
         )
+        results.append(
+            {
+                "resource": resource,
+                "path": destination,
+                "downloaded": downloaded,
+            }
+        )
+
+    return results
 
 
 def parse_args() -> argparse.Namespace:
