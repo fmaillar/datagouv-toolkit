@@ -5,8 +5,8 @@ from pathlib import Path
 
 import requests
 
-from datagouv import resolve_dataset
-from normalize import normalize_format
+from .datagouv import resolve_dataset
+from .normalize import normalize_format
 
 CHUNK_SIZE = 1024 * 1024
 
