@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "datagouv-toolkit"
 version = "0.4.0"
-description = "Toolkit for exploring, downloading, auditing and analyzing datasets from data.gouv.fr"
+description = "Toolkit for discovering, evaluating, selecting and downloading datasets from data.gouv.fr"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "GPL-3.0-only"
@@ -16,9 +16,9 @@ keywords = [
   "data.gouv.fr",
   "open-data",
   "csv",
-  "pandas",
+  "data-discovery",
   "cli",
-  "data-analysis",
+  "data-access",
 ]
 classifiers = [
   "Development Status :: 3 - Alpha",
