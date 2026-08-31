@@ -66,3 +66,14 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.mypy]
+files = ["src/datagouv_toolkit"]
+ignore_missing_imports = false
+
+[[tool.mypy.overrides]]
+module = [
+  "pyarrow",
+  "pyarrow.*",
+]
+ignore_missing_imports = true
