@@ -678,3 +678,202 @@ def test_resolve_dataset_eof_interrupts(monkeypatch):
 
     with pytest.raises(KeyboardInterrupt):
         module.resolve_dataset("example")
+
+
+def test_command_search_json(monkeypatch, capsys):
+    monkeypatch.setattr(
+        module,
+        "search_datasets",
+        lambda query, limit: {
+            "data": [{"id": "abc", "title": "Énergie"}],
+            "total": 1,
+        },
+    )
+
+    module.command_search(
+        Namespace(
+            query="energie",
+            limit=5,
+            json=True,
+        )
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+
+    assert payload == {
+        "data": [{"id": "abc", "title": "Énergie"}],
+        "total": 1,
+    }
+
+
+def test_command_dataset_json(monkeypatch, capsys):
+    monkeypatch.setattr(
+        module,
+        "resolve_dataset",
+        lambda *args, **kwargs: {
+            "id": "abc",
+            "title": "Énergie",
+            "description": "Dataset test",
+        },
+    )
+
+    module.command_dataset(
+        Namespace(
+            dataset="example",
+            producer=None,
+            title=None,
+            json=True,
+        )
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+
+    assert payload["id"] == "abc"
+    assert payload["title"] == "Énergie"
+    assert payload["description"] == "Dataset test"
+
+
+def test_command_resources_json(monkeypatch, capsys):
+    monkeypatch.setattr(
+        module,
+        "resolve_dataset",
+        lambda *args, **kwargs: {
+            "title": "Example",
+            "resources": [
+                {
+                    "id": "resource-1",
+                    "title": "Données",
+                    "format": "csv",
+                }
+            ],
+        },
+    )
+
+    module.command_resources(
+        Namespace(
+            dataset="example",
+            producer=None,
+            title=None,
+            json=True,
+        )
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+
+    assert payload == [
+        {
+            "format": "csv",
+            "id": "resource-1",
+            "title": "Données",
+        }
+    ]
+
+
+def test_command_organization_json(monkeypatch, capsys):
+    monkeypatch.setattr(
+        module,
+        "get_organization",
+        lambda value: {
+            "id": value,
+            "name": "Example Org",
+            "page": "https://example.test/org",
+        },
+    )
+
+    module.command_organization(
+        Namespace(
+            organization_id="org-id",
+            json=True,
+        )
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+
+    assert payload == {
+        "id": "org-id",
+        "name": "Example Org",
+        "page": "https://example.test/org",
+    }
+
+
+def test_command_stats_json(monkeypatch, capsys):
+    monkeypatch.setattr(
+        module,
+        "resolve_dataset",
+        lambda *args, **kwargs: {"title": "Example"},
+    )
+    monkeypatch.setattr(
+        module,
+        "dataset_stats",
+        lambda dataset: {
+            "resources": 3,
+            "formats": module.Counter({"csv": 2, "json": 1}),
+            "domains": module.Counter({"example.test": 3}),
+            "total_size": 1024,
+            "unknown_size": 1,
+            "years": [2023, 2024],
+        },
+    )
+
+    module.command_stats(
+        Namespace(
+            dataset="example",
+            producer=None,
+            title=None,
+            json=True,
+        )
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+
+    assert payload == {
+        "domains": {"example.test": 3},
+        "formats": {"csv": 2, "json": 1},
+        "resources": 3,
+        "total_size": 1024,
+        "unknown_size": 1,
+        "years": [2023, 2024],
+    }
+
+
+def test_command_metadata_json(monkeypatch, capsys):
+    monkeypatch.setattr(
+        module,
+        "resolve_dataset",
+        lambda *args, **kwargs: {
+            "title": "Example",
+            "id": "abc",
+            "organization": {"name": "Example Org"},
+            "license": "odbl",
+            "created_at": "2026",
+            "last_modified": "2026",
+            "last_update": "2026",
+            "frequency": "annual",
+            "frequency_date": None,
+            "tags": ["transport"],
+            "temporal_coverage": {"start": "2024", "end": "2024"},
+            "spatial": {},
+            "resources": [{}, {}],
+            "page": "https://example.test",
+            "quality": {"score": 1.0},
+            "metrics": {"views": 12},
+        },
+    )
+
+    module.command_metadata(
+        Namespace(
+            dataset="example",
+            producer=None,
+            title=None,
+            json=True,
+        )
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+
+    assert payload["title"] == "Example"
+    assert payload["id"] == "abc"
+    assert payload["producer"] == "Example Org"
+    assert payload["resources"] == 2
+    assert payload["quality"] == {"score": 1.0}
+    assert payload["metrics"] == {"views": 12}
