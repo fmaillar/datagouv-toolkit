@@ -10,7 +10,7 @@ import requests
 from . import catalog_stats, datagouv
 from .dataset_workflow import run_workflow
 from .download_resources import download_resources, select_resources
-from .inspect_csv import DEFAULT_LOW_CARDINALITY, inspect_csv
+from .inspect_csv import DEFAULT_LOW_CARDINALITY, analyze_csv, inspect_csv
 
 
 def add_dataset_selector(parser: argparse.ArgumentParser) -> None:
@@ -154,13 +154,30 @@ def command_inspect_csv(args: argparse.Namespace) -> None:
     if not args.file.is_file():
         raise FileNotFoundError(f"Fichier introuvable : {args.file}")
 
-    inspect_csv(
-        args.file,
-        encoding=args.encoding,
-        separator=args.sep,
-        nrows=args.nrows,
-        low_cardinality=args.low_cardinality,
-    )
+    if getattr(args, "json", False):
+        audit = analyze_csv(
+            args.file,
+            encoding=args.encoding,
+            separator=args.sep,
+            nrows=args.nrows,
+            low_cardinality=args.low_cardinality,
+        )
+        print(
+            json.dumps(
+                audit,
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            )
+        )
+    else:
+        inspect_csv(
+            args.file,
+            encoding=args.encoding,
+            separator=args.sep,
+            nrows=args.nrows,
+            low_cardinality=args.low_cardinality,
+        )
 
 
 def command_catalog_stats(args: argparse.Namespace) -> None:
@@ -367,6 +384,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_LOW_CARDINALITY,
         help="Seuil de cardinalité pour afficher les distributions",
     )
+    add_json_option(csv_parser)
     csv_parser.set_defaults(func=command_inspect_csv)
 
     catalog_parser = subparsers.add_parser(
