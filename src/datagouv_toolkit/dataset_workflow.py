@@ -5,7 +5,7 @@ from contextlib import redirect_stdout
 from pathlib import Path
 
 from .datagouv import resolve_dataset
-from .download_resources import download_resources, select_resources
+from .download_resources import download_resource, download_resources, select_resources
 from .inspect_csv import inspect_csv
 
 
@@ -50,6 +50,7 @@ def run_workflow(
         output_dir,
         overwrite=overwrite,
         progress=False,
+        download_func=download_resource,
     )
 
     for index, result in enumerate(
