@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-31
+
 ### Added
 
 - Machine-readable `--json` output for `datagouv inspect-csv`, exposing file metadata, missing values, cardinalities, candidate keys, duplicate counts, low-cardinality distributions, and preview rows.
@@ -95,7 +97,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Ruff, mypy, Bandit, pytest, and coverage checks.
 - GPL-3.0-only license.
 
-[Unreleased]: https://github.com/fmaillar/datagouv-toolkit/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/fmaillar/datagouv-toolkit/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/fmaillar/datagouv-toolkit/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/fmaillar/datagouv-toolkit/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/fmaillar/datagouv-toolkit/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/fmaillar/datagouv-toolkit/compare/v0.1.1...v0.2.0
