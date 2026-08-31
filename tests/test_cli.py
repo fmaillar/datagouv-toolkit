@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+import requests
+
 import cli
 
 
@@ -250,10 +253,9 @@ def test_catalog_stats_rejects_non_positive_top(tmp_path):
     else:
         raise AssertionError("ValueError attendu")
 
+
 def test_search_parser_maps_arguments():
-    args = cli.build_parser().parse_args(
-        ["search", "transport", "--limit", "7"]
-    )
+    args = cli.build_parser().parse_args(["search", "transport", "--limit", "7"])
 
     assert args.command == "search"
     assert args.query == "transport"
@@ -290,9 +292,7 @@ def test_dataset_parsers_map_arguments():
 
 
 def test_organization_parser_maps_arguments():
-    args = cli.build_parser().parse_args(
-        ["organization", "abc"]
-    )
+    args = cli.build_parser().parse_args(["organization", "abc"])
 
     assert args.organization_id == "abc"
     assert args.func is cli.datagouv.command_organization
@@ -321,3 +321,38 @@ def test_main_success(monkeypatch):
 
     assert cli.main() == 0
     assert called == [True]
+
+
+@pytest.mark.parametrize(
+    ("exception", "message", "code"),
+    [
+        (requests.HTTPError("HTTP failure"), "Erreur HTTP", 1),
+        (requests.RequestException("Network failure"), "Erreur réseau", 1),
+        (FileNotFoundError("missing.csv"), "Erreur : missing.csv", 1),
+        (OSError("disk failure"), "Erreur fichier : disk failure", 1),
+        (ValueError("Bad value"), "Erreur : Bad value", 1),
+        (KeyboardInterrupt(), "Interrompu.", 130),
+    ],
+)
+def test_main_handles_errors(monkeypatch, capsys, exception, message, code):
+    def fail(args):
+        raise exception
+
+    monkeypatch.setattr(
+        cli,
+        "build_parser",
+        lambda: type(
+            "Parser",
+            (),
+            {
+                "parse_args": lambda self: type(
+                    "Args",
+                    (),
+                    {"func": fail},
+                )()
+            },
+        )(),
+    )
+
+    assert cli.main() == code
+    assert message in capsys.readouterr().err
