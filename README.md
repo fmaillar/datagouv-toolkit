@@ -67,6 +67,32 @@ datagouv download \
   --output data
 ```
 
+Pour obtenir un résultat exploitable par une machine, ajouter `--json` :
+
+```bash
+datagouv download \
+  "accidents corporels" \
+  --producer "Ministère de l'intérieur" \
+  --format csv \
+  --resource-title "Caract_2024" \
+  --output data \
+  --json
+```
+
+La sortie JSON contient le dataset résolu, le répertoire de destination et le résultat de chaque ressource, notamment son chemin local et le booléen `downloaded`. Une ressource déjà présente sans `--overwrite` est signalée par `"downloaded": false`.
+
+La sortie peut être composée avec d'autres outils Unix, par exemple :
+
+```bash
+datagouv download \
+  "accidents corporels" \
+  --producer "Ministère de l'intérieur" \
+  --format csv \
+  --resource-title "Caract_2024" \
+  --output data \
+  --json | jq '.resources[] | {path, downloaded}'
+```
+
 ### Télécharger et auditer automatiquement
 
 ```bash
@@ -79,7 +105,7 @@ datagouv workflow \
   --audit-dir audits
 ```
 
-Le workflow résout le dataset, sélectionne les ressources, les télécharge puis audite automatiquement les fichiers CSV.
+Le workflow résout le dataset, sélectionne les ressources, les télécharge puis audite automatiquement les fichiers CSV. Il s'appuie sur les mêmes résultats structurés de téléchargement que la commande `download`.
 
 ### Auditer un CSV local
 
@@ -152,9 +178,10 @@ datagouv catalog-stats  Analyse d'un snapshot du catalogue
 
 ## Qualité
 
+La vérification locale complète est centralisée dans le `Makefile` :
+
 ```bash
-ruff check .
-mypy . --ignore-missing-imports
-pytest -q
-bandit -q *.py
+make check
 ```
+
+Cette cible exécute Ruff, mypy avec la configuration de `pyproject.toml`, Bandit sur le package, les tests avec couverture, la construction des distributions, `twine check` et un smoke test de la CLI installée.
