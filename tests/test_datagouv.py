@@ -174,6 +174,44 @@ def test_resolve_dataset_rejects_empty_result(monkeypatch):
         module.resolve_dataset("missing")
 
 
+def test_resolve_dataset_first_selects_first_result(monkeypatch):
+    datasets = [
+        {
+            "id": "a",
+            "title": "Dataset A",
+            "organization": {"name": "Org A"},
+        },
+        {
+            "id": "b",
+            "title": "Dataset B",
+            "organization": {"name": "Org B"},
+        },
+    ]
+
+    monkeypatch.setattr(
+        module,
+        "search_datasets",
+        lambda *args, **kwargs: {"data": datasets},
+    )
+    monkeypatch.setattr(
+        module,
+        "get_dataset",
+        lambda value: {"id": value},
+    )
+
+    def fail_input(prompt=""):
+        raise AssertionError("input() ne doit pas être appelé avec first=True")
+
+    monkeypatch.setattr("builtins.input", fail_input)
+
+    result = module.resolve_dataset(
+        "dataset",
+        first=True,
+    )
+
+    assert result == {"id": "a"}
+
+
 def test_resolve_dataset_interactive(monkeypatch, capsys):
     datasets = [
         {

@@ -373,3 +373,42 @@ def test_json_option_on_supported_commands():
     for argv in commands:
         args = parser.parse_args(argv)
         assert args.json is True
+
+def test_dataset_selector_accepts_first() -> None:
+    parser = cli.build_parser()
+
+    for command in (
+        "dataset",
+        "resources",
+        "metadata",
+        "stats",
+        "inspect",
+    ):
+        args = parser.parse_args([command, "transport", "--first"])
+        assert args.first is True
+
+
+def test_download_and_workflow_accept_first(tmp_path) -> None:
+    parser = cli.build_parser()
+
+    download_args = parser.parse_args(
+        [
+            "download",
+            "transport",
+            "--first",
+            "-o",
+            str(tmp_path),
+        ]
+    )
+    workflow_args = parser.parse_args(
+        [
+            "workflow",
+            "transport",
+            "--first",
+            "-o",
+            str(tmp_path),
+        ]
+    )
+
+    assert download_args.first is True
+    assert workflow_args.first is True

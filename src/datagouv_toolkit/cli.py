@@ -27,6 +27,11 @@ def add_dataset_selector(parser: argparse.ArgumentParser) -> None:
         "--title",
         help="Filtrer par texte présent dans le titre du dataset",
     )
+    parser.add_argument(
+        "--first",
+        action="store_true",
+        help="Sélectionner le premier résultat sans demander de choix interactif",
+    )
 
 
 def add_json_option(parser: argparse.ArgumentParser) -> None:
@@ -44,6 +49,7 @@ def command_download(args: argparse.Namespace) -> None:
         args.dataset,
         producer=args.producer,
         title=args.title,
+        first=args.first,
     )
     resources = select_resources(
         dataset,
@@ -109,6 +115,7 @@ def command_workflow(args: argparse.Namespace) -> None:
         args.output,
         producer=args.producer,
         dataset_title=args.title,
+        first=args.first,
         resource_format=args.resource_format,
         resource_title=args.resource_title,
         overwrite=args.overwrite,
