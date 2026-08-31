@@ -66,6 +66,7 @@ jobs:
       - name: Tests and coverage
         run: |
           pytest \
+            --cov=cli \
             --cov=datagouv \
             --cov=catalog_stats \
             --cov=normalize \
