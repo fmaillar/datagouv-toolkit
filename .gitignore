@@ -13,3 +13,10 @@ htmlcov/
 *.egg-info/
 
 dist/
+
+# Build artifacts
+build/
+
+# Local datasets and snapshots
+/datasets/
+/snapshot/
